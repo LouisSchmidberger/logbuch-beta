@@ -137,16 +137,11 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 
 ## Deployment
 
-**Erst Beta, dann live** (Nutzer-Entscheidung 2026-10-11): Commits zuerst `git push beta main`
-→ CI prüft, baut, veröffentlicht bei Grün auf https://louisschmidberger.github.io/logbuch-beta/ (Repo `logbuch-beta`); der
-Nutzer nutzt die Beta täglich mit seinem echten Konto und testet dort. Live
-(`git push origin main`) nur **gesammelt am Sitzungsende** und auf sein Okay, mit einem
-`CHANGELOG`-Eintrag für die ganze Sitzung (Nutzer-Entscheidung 2026-10-14). **Datenbank und Edge
-Functions sind für beide dieselben**: Migrationen/Deploys wirken sofort auch live, deshalb so
-bauen, dass die alte Live-Version damit weiterläuft.
-
-Schritte (Pages, Edge Functions, Migrationen, `config.toml`) und Freigabe neuer Funktionen
-per Schalter: **docs/freigabe.md**.
+**Erst Beta, dann live** (Nutzer-Entscheidungen 2026-10-11/-14): `git push beta main` → CI
+veröffentlicht bei Grün die Beta, die der Nutzer täglich mit echtem Konto nutzt. Live (`git push
+origin main`) nur gesammelt am Sitzungsende, auf sein Okay, mit einem `CHANGELOG`-Eintrag.
+**Datenbank und Edge Functions teilen beide**: Migrationen/Deploys wirken sofort live, also so
+bauen, dass die alte Live-Version weiterläuft. Schritte und Schalter: **docs/freigabe.md**.
 
 ## Hub
 
