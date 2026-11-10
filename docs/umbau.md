@@ -10,15 +10,10 @@ darf dort stehen bleiben. Kein "alles oder nichts".
 
 ## Ausgangslage
 
-Schon erledigt: Code in 31 ES-Module unter `js/` aufgeteilt (docs/module.md, mit `runtime` und
-`init…()`), CSS in `logbuch.css`, ESLint, CI (Linter, `dev/tests.mjs`, Rundgänge, Abgleich
-JS ↔ SQL mit `dev/sync-tests.mjs`, `deno check` der Functions), feste Paketversionen in den
-Edge Functions. Die Module importieren sich gegenseitig im Kreis; das läuft nur, weil beim
-Laden nichts außer Deklarationen passiert.
-
-Warum ein Build-Schritt nötig ist: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307,
-gemessen). Typprüfung ohne Build ginge nur mit Umwegen; mit Vite übernehmen Hash-Dateinamen das
-Cache-Busting und `?v=` fällt weg.
+Schon erledigt: Code in 31 ES-Module unter `src/` aufgeteilt (docs/module.md, mit `runtime` und
+`init…()`), ESLint, CI mit Tests, Rundgängen, Abgleich JS ↔ SQL und `deno check` der Functions,
+feste Paketversionen in den Edge Functions, Phase 0 und 1 (unten). Die Module importieren sich
+gegenseitig im Kreis; das läuft nur, weil beim Laden nichts außer Deklarationen passiert.
 
 ## Grundregeln (jede Phase)
 
@@ -53,8 +48,8 @@ Cache-Busting und `?v=` fällt weg.
 
 ### Fertig-Kriterium je Schritt
 
-- `npm run lint`, `node dev/tests.mjs`, `node dev/rundgang.mjs alle` ohne Fehler; später
-  zusätzlich `npm run typecheck` und `npm run build`.
+- `npm run lint`, `npm run build`, `npm test`, `node dev/rundgang.mjs alle` ohne Fehler;
+  `npm run typecheck` nicht schlechter als vorher (Zahl der Meldungen).
 - Rundgang-Bilder gegen die Baseline aus Phase 0: in den Phasen 1–4 **kein Pixel** anders
   (außer Datum und zufälligem Ersatzschlüssel).
 - Neue Tabelle/Spalte/Supabase-Aufruf → `dev/mock-supabase.js` nachziehen.
@@ -79,28 +74,23 @@ Cache-Busting und `?v=` fällt weg.
 - Feste Krypto-Testdaten `dev/fixtures/crypto.json` mit `dev/crypto-tests.mjs` (läuft in der CI).
   Zieht der Krypto-Code nach `src/`, nur den Import-Pfad im Test anpassen.
 
-### Phase 1: Build mit Vite und Typprüfung
+### Phase 1: Build mit Vite und Typprüfung (erledigt 2026-11-10)
 
-- Vite und `tsconfig.json` (`allowJs`, `checkJs`, `noEmit`) im Projektstamm.
-  `supabase/functions/*` (Deno) gehören **nicht** in diese `tsconfig`.
-- Quellcode nach `src/` (heute `js/` und `logbuch.js`), statische Dateien (`sw.js`,
-  `manifest.json`, Icons, `fonts/`) nach `public/`, unverändert und ohne Hash.
-- `supabase-js` aus npm in **exakt** `2.117.2`; danach `vendor/` entfernen,
-  `vendor/LICENSES.txt` weiter mitliefern.
-- Einstieg bleibt **`logbuch.html`** (`manifest.json`, `sw.js`, Push-Links und installierte
-  Apps zeigen darauf), `index.html` bleibt die Weiterleitung. `base: './'`, damit derselbe
-  Build unter `/logbuch/` und `/logbuch-beta/` läuft.
-- **CSP** unverändert; im Build keine Inline-Skripte. Braucht `vite dev` eine lockere CSP, nur
-  dort, nie im Produktions-Build.
-- **Cache-Busting**: Hash-Dateinamen statt `?v=`; Hook `.githooks/pre-commit` auf den Linter
-  zurückbauen, `docs/freigabe.md` anpassen. Falle: eine noch zwischengespeicherte alte HTML
-  verweist auf gelöschte Dateien; die Dateien des vorigen Builds eine Runde behalten.
-- **Deployment** wird ein Build-Schritt (GitHub Actions in `logbuch` und `logbuch-beta`). Wie
-  genau, entscheidet der Nutzer vor dem Start.
-- **Vorschau**: `mock-supabase.js` per Vite-Alias, `preview-hook.js` nur im Vorschau-Modus.
-  Nach `npm run build` darf `__logbuchPreview` nicht im Ergebnis stehen; `dev/` wird nicht mehr
-  mitveröffentlicht (heute liegt es öffentlich auf Pages).
-- Typfehler aus `checkJs` zuerst nur sichtbar machen (CI meldet, sperrt nicht), dann abbauen.
+Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); mit Vite
+übernehmen Hash-Dateinamen das Cache-Busting. Stand:
+
+- `vite.config.js`, Quellcode in `src/`, `public/` unverändert ins Ergebnis, Einstieg bleibt
+  `logbuch.html`, `base: './'`. `supabase-js` 2.117.2 aus npm, `vendor/` entfällt.
+- Vorschau = Vite-Build im Modus "preview" (Supabase-Nachbau per Alias, Vorschau-Haken an
+  `main.js`), also derselbe gebündelte Code wie live. Die CI prüft, dass `dist/` keinen
+  Vorschau-Code enthält; `dev/` wird nicht mehr veröffentlicht.
+- Veröffentlichen über den CI-Job `deploy`, nur wenn alles grün ist; Skript und CSS des vorigen
+  Stands bleiben eine Runde online (docs/freigabe.md).
+- `npm run typecheck` (`checkJs`, nicht streng) läuft in der CI nur als Hinweis: 257 Meldungen
+  zum Start, fast alle "Eigenschaft unbekannt" (`event.target.dataset` u. ä.), kein echter
+  Fehler darunter gefunden. Abbau in Phase 3.
+- Bildvergleich: alle Rundgang-Bilder gleich der Baseline außer dem zufälligen Ersatzschlüssel.
+  Die Beispieldaten der Vorschau sind seitdem unabhängig von der Uhrzeit des Laufs.
 
 ### Phase 2: Struktur
 

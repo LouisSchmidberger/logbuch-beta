@@ -1,0 +1,16 @@
+{
+  // Typprüfung (npm run typecheck) für die App unter src/, noch ohne Umbenennen nach .ts
+  // (docs/umbau.md, Phase 1/3). Edge Functions (supabase/functions, Deno) prüft die CI getrennt.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

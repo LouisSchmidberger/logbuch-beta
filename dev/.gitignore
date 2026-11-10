@@ -1,3 +1,5 @@
 node_modules/
 screenshots/
 .profile-*/
+# Gebaute Vorschau (vite build --mode preview, siehe server.mjs)
+.preview/

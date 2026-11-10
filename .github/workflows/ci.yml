@@ -1,7 +1,8 @@
-# Automatische Prüfung bei jedem Push (Beta und live): Linter, Verschlüsselung, Rechenlogik-Tests, Abgleich
-# JS <-> SQL auf einer frischen Wegwerf-Datenbank aus allen Migrationen, Typprüfung der Edge
-# Functions. Schlägt etwas fehl, zeigt GitHub den Push rot (Reiter "Actions") und schickt eine
-# Mail. Die Seite selbst wird trotzdem veröffentlicht - die CI ist das Warnsignal, nicht die Sperre.
+# Bei jedem Push (Beta und live): Linter, Verschlüsselung, Build, Rechenlogik-Tests, Rundgänge,
+# Abgleich JS <-> SQL auf einer frischen Wegwerf-Datenbank aus allen Migrationen, Typprüfung der
+# Edge Functions. Erst wenn alles grün ist, baut "deploy" die App und veröffentlicht sie auf
+# GitHub Pages (nur Push auf main). Rot = nichts wird veröffentlicht, der alte Stand bleibt online.
+# Das Repo (logbuch bzw. logbuch-beta) bestimmt, wohin: dieselbe Datei läuft in beiden.
 name: CI
 
 on:
@@ -27,10 +28,18 @@ jobs:
         run: npm run lint
       - name: Verschlüsselung (feste Testdaten)
         run: node dev/crypto-tests.mjs
+      - name: Build
+        run: npm run build
+      - name: Kein Vorschau-Code im Build
+        run: "! grep -rl __logbuchPreview dist/"
+      # Typprüfung der App: meldet nur (Annotation), bis die Altlasten abgebaut sind (docs/umbau.md).
+      - name: Typprüfung (nur Hinweis)
+        continue-on-error: true
+        run: npm run typecheck
       - name: Vorschau-Server starten
         run: |
           node dev/server.mjs &
-          for i in $(seq 1 30); do curl -sf http://localhost:5180/ > /dev/null && exit 0; sleep 1; done
+          for i in $(seq 1 60); do curl -sf http://localhost:5180/ > /dev/null && exit 0; sleep 1; done
           exit 1
       - name: Tests der Rechenlogik
         run: node dev/tests.mjs
@@ -64,3 +73,46 @@ jobs:
       # node_modules-Ordner automatisch: sonst sucht Deno wegen package.json im Projektstamm die
       # npm:-Pakete dort statt sie selbst zu laden.
       - run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
+
+  deploy:
+    name: Veröffentlichen (GitHub Pages)
+    needs: [app, functions]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Kein Vorschau-Code im Build
+        run: "! grep -rl __logbuchPreview dist/"
+      # Skript und CSS des bisherigen Stands eine Runde mitveröffentlichen: ein Browser mit noch
+      # zwischengespeichertem altem logbuch.html (Pages: bis 10 Minuten) fände sie sonst nicht mehr.
+      - name: Dateien des vorigen Stands behalten
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          base="https://${owner}.github.io/${GITHUB_REPOSITORY#*/}/"
+          old=$(curl -sf "${base}logbuch.html" || true)
+          for f in $(printf '%s' "$old" | grep -o 'assets/[A-Za-z0-9._-]*\.\(js\|css\)' | sort -u); do
+            if [ ! -e "dist/$f" ] && curl -sf "${base}$f" -o "dist/$f"; then echo "behalten: $f"; fi
+          done
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4

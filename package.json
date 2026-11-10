@@ -2,11 +2,13 @@
   "name": "logbuch",
   "private": true,
   "type": "module",
-  "description": "Entwicklungswerkzeuge für Logbuch (die App selbst braucht keinen Build-Schritt)",
+  "description": "Logbuch: Build (Vite), Tests und Entwicklungswerkzeuge",
   "scripts": {
     "lint": "eslint .",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json",
     "preview": "node dev/server.mjs",
-    "test": "node dev/tests.mjs",
+    "test": "node dev/crypto-tests.mjs && node dev/tests.mjs",
     "shots": "node dev/shoot.mjs"
   },
   "devDependencies": {
@@ -14,6 +16,11 @@
     "eslint": "9.39.5",
     "globals": "17.14.0",
     "puppeteer-core": "24.43.1",
-    "supabase": "3.1.0"
+    "supabase": "3.1.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.2"
   }
 }

@@ -1,6 +1,6 @@
 // Abgleich JS <-> SQL: Regeln, die es doppelt gibt (CLAUDE.md "Zeitplan-Regeln doppelt"), müssen
 // in der App und in der Datenbank dasselbe ergeben. Das Skript rechnet dieselben Fälle einmal in
-// logbuch.js (über die Vorschau) und einmal in Postgres und meldet jeden Unterschied.
+// der App (über die Vorschau) und einmal in Postgres und meldet jeden Unterschied.
 //
 //   node dev/sync-tests.mjs     (Vorschau-Server muss laufen; lokale Datenbank: npx supabase db start)
 //

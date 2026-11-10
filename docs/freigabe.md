@@ -19,7 +19,9 @@ alle.
 
 ## Deployment-Schritte
 
-1. `logbuch.html`, `logbuch.css`, `logbuch.js`, `js/`, `sw.js`, `vendor/`, `fonts/` → GitHub Pages (Root).
+1. App: `git push` genügt. Die CI (`.github/workflows/ci.yml`) prüft alles, baut mit Vite und
+   veröffentlicht `dist/` über den Job `deploy` (Pages-Quelle in beiden Repos: "GitHub Actions").
+   Ist ein Schritt rot, bleibt der alte Stand online; den Fehler vor allem anderen beheben.
 2. `supabase functions deploy <name>` (Code unter `supabase/functions/<name>/index.ts`). Ob eine
    Function ein Supabase-Login verlangt (`verify_jwt`), steht je Function in `supabase/config.toml`;
    der Deploy liest es von dort. Paket-Versionen in den Functions immer fest (`npm:paket@x.y.z`).
@@ -31,15 +33,11 @@ alle.
 4. `supabase/config.toml` spiegelt Auth-/API-/DB-Einstellungen rein dokumentarisch (kein
    `config push`); nach Dashboard-Änderungen `supabase config pull --force`.
 
-**Cache-Busting**: GitHub Pages lässt Browser Dateien 10 Min. zwischenspeichern – eine neue
-`logbuch.html` könnte auf alte Skripte treffen oder neue Module auf alte. Alle Adressen tragen
-deshalb dieselbe Kennung (`logbuch.js?v=…`, `logbuch.css?v=…`, `./x.js?v=…` in jedem
-`import`): ein Hash über alle Skripte und das CSS, gesetzt vom Hook `.githooks/pre-commit` bei
-jedem Commit. Eine Kennung für alle statt einer je Datei, weil sich die Module gegenseitig
-importieren. Neue `import`-Zeilen mit `?v=0` schreiben, der Hook ersetzt die Kennung.
-Pro Klon einmal nötig: `git config core.hooksPath .githooks` (sonst bleibt die Kennung stehen).
-Der umgekehrte Fall (alte HTML aus dem Zwischenspeicher) lädt den alten Stand vollständig und
-in sich stimmig.
+**Cache-Busting**: GitHub Pages lässt Browser Dateien 10 Min. zwischenspeichern. Vite gibt
+Skript und CSS einen Hash im Dateinamen, eine neue `logbuch.html` lädt also nie alte Skripte.
+Umgekehrt findet eine noch zwischengespeicherte alte `logbuch.html` ihre Dateien weiter: der
+Deploy veröffentlicht Skript und CSS des vorigen Stands eine Runde mit (Schritt "Dateien des
+vorigen Stands behalten"). Schriften und alles unter `public/` behalten ihren Namen.
 
 ## Im Code
 

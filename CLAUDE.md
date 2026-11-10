@@ -38,22 +38,25 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 
 ## Stack und Hosting
 
-- **Frontend**: `logbuch.html` (Markup), `logbuch.css`, `logbuch.js` (Einstieg) und ES-Module
-  unter `js/` (App-Logik, eins je Bereich, docs/module.md), Vanilla JS, kein Framework, kein
-  Build-Step. Skripte in eigenen Dateien statt im HTML, damit die Content-Security-Policy (`<meta>` in `logbuch.html`) Inline-Skripte komplett verbieten
-  kann (`script-src 'self'`): eingeschleuster Code liefe nicht, und `connect-src` lässt
+- **Frontend**: `logbuch.html` (Einstieg), ES-Module unter `src/` (`main.js` startet, sonst eins
+  je Bereich, docs/module.md), `src/logbuch.css`, Vanilla JS, kein Framework. **Build mit Vite**
+  (`npm run build` → `dist/`, Hash im Dateinamen statt Cache-Busting von Hand); `public/` geht
+  unverändert mit (`sw.js`, Manifest, Icons, Schriften). Umbau-Plan (TypeScript usw.):
+  docs/umbau.md. Keine Inline-Skripte, damit die Content-Security-Policy (`<meta>` in
+  `logbuch.html`) sie komplett verbieten kann (`script-src 'self'`): eingeschleuster Code liefe nicht, und `connect-src` lässt
   Daten nur zum eigenen Supabase-Projekt. **Neue externe Quellen müssen in die CSP.**
-- **Keine Drittanbieter zur Laufzeit**: `supabase-js` liegt in fester Version unter
-  `vendor/` (Neu-Bauen siehe Dateikopf; nicht vom CDN – wer das CDN kontrolliert, könnte
-  Passwort und Schlüssel mitlesen), die Schriften (Fraunces, IBM Plex Sans, SIL OFL) unter
-  `fonts/` (nicht Google Fonts – übermittelte bei jedem Öffnen die IP an Google).
-- **Service Worker** `sw.js`: nur Web-Push-Empfang/-Klick, kein Offline-Caching.
+- **Keine Drittanbieter zur Laufzeit**: `supabase-js` kommt in exakt festgelegter Version aus
+  npm (`package-lock.json`) ins eigene Bündel (nicht vom CDN – wer das CDN kontrolliert,
+  könnte Passwort und Schlüssel mitlesen); Lizenzen in `public/LICENSES-supabase-js.txt`. Die
+  Schriften (Fraunces, IBM Plex Sans, SIL OFL) liegen unter `public/fonts/` (nicht Google
+  Fonts – übermittelte bei jedem Öffnen die IP an Google).
+- **Service Worker** `public/sw.js`: nur Web-Push-Empfang/-Klick, kein Offline-Caching.
 - **Backend**: Supabase (Projekt-Ref `qdadoqcnqmrauhshvcts`, Region Europe) – Postgres,
   Auth (E-Mail/Passwort), Edge Functions `send-notifications`, `delete-account`,
   `submit-feedback`, `ops-stats` (Kennzahlen für den Hub); pg_cron für Erinnerungen und Aufräum-Jobs. Resend als SMTP und für
   Feedback-Mails.
-- **Hosting**: GitHub Pages, statisch. `logbuch.html`, `logbuch.css`, `logbuch.js`, `js/`, `sw.js`,
-  `vendor/`, `fonts/` müssen im selben Wurzelverzeichnis des gehosteten Pfads liegen.
+- **Hosting**: GitHub Pages, statisch. Veröffentlicht wird nur `dist/`, und nur von der CI
+  (`.github/workflows/ci.yml`, Job `deploy`), wenn alle Prüfungen grün sind.
 
 ## Konventionen
 
@@ -82,9 +85,10 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 
 ## Bekannte Fallstricke
 
-- **Cache-Busting** über `?v=<Kennung>` an allen Skript- und CSS-Adressen, auch in jedem
-  `import` (neue mit `?v=0` schreiben), gesetzt vom Hook `.githooks/pre-commit`.
-  **Pro Klon einmal nötig: `git config core.hooksPath .githooks`** (Hintergrund: docs/freigabe.md).
+- **Pfade in `logbuch.html`/CSS auf `public/` mit `/` beginnen** (`/icon-192.png`,
+  `url(/fonts/…)`): Vite macht daraus relative Pfade (`base: './'`, läuft unter `/logbuch/`
+  und `/logbuch-beta/`). Linter vor jedem Commit über `.githooks/pre-commit`, pro Klon einmal
+  `git config core.hooksPath .githooks`.
 - **"JWT issued at future" (PGRST303)** fängt `fetchWithJwtFutureRetry` ab – nicht entfernen
   (Hintergrund: docs/datenschutz-sicherheit.md, Anmeldung).
 - **Zeitplan-Regeln doppelt**: `isScheduledOn`/`isPlannedOn` (JS) und
@@ -114,7 +118,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
   PC muss funktionieren, gibt aber nicht die Richtung vor.
 - **Texte in beiden Sprachen**: neue Strings immer über `STRINGS`/`t()` in `de` UND `en`,
   in identischer Key-Reihenfolge.
-- **`CHANGELOG`** in `js/about-view.js` ("Was ist neu"): ein Eintrag pro Live-Gang für alles aus der
+- **`CHANGELOG`** in `src/about-view.js` ("Was ist neu"): ein Eintrag pro Live-Gang für alles aus der
   Sitzung (de + en), Datum des Live-Gangs; den obersten erweitern, solange er nicht live ist.
   Zwei Stufen: `short` = eine einfache Zeile pro Neuerung fürs Fenster beim Start (für
   jemanden, der die App kaum kennt), `de`/`en` = ausführlicher für "Über Logbuch". Nur Begriffe, die man in der App sieht oder aus dem Alltag kennt, und beschreiben, was man
@@ -134,7 +138,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 ## Deployment
 
 **Erst Beta, dann live** (Nutzer-Entscheidung 2026-10-11): Commits zuerst `git push beta main`
-→ https://louisschmidberger.github.io/logbuch-beta/ (Repo `logbuch-beta`, gleicher Code); der
+→ CI prüft, baut, veröffentlicht bei Grün auf https://louisschmidberger.github.io/logbuch-beta/ (Repo `logbuch-beta`); der
 Nutzer nutzt die Beta täglich mit seinem echten Konto und testet dort. Live
 (`git push origin main`) nur **gesammelt am Sitzungsende** und auf sein Okay, mit einem
 `CHANGELOG`-Eintrag für die ganze Sitzung (Nutzer-Entscheidung 2026-10-14). **Datenbank und Edge

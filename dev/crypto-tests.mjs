@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import {
   ENCRYPT_PAD_BLOCK, base64ToBuf, bufToHex, decryptData, deriveKek, encryptData, hexToBuf,
   importRecoveryKeyAsCryptoKey, unwrapDek,
-} from '../js/crypto.js';
+} from '../src/crypto.js';
 
 const fx = JSON.parse(readFileSync(new URL('./fixtures/crypto.json', import.meta.url), 'utf8'));
 let failed = 0;

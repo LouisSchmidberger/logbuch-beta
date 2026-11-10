@@ -4,7 +4,7 @@
 
 Ledger/Logbuch-Ästhetik: Parchment-Hintergrund (`--paper`), warmes Schwarz (`--ink`),
 Fraunces (Serif, kursiv für Überschriften) + IBM Plex Sans. Farb-Tokens als CSS-Variablen in
-`logbuch.css`. Bei Erweiterungen an diesem Stil festhalten, nicht auf
+`src/logbuch.css`. Bei Erweiterungen an diesem Stil festhalten, nicht auf
 generische Tailwind-/Card-Optik wechseln.
 
 **Symbole**: Menüpunkte, Seitenköpfe der Unterseiten, "+ Neues Feld"/"Neue Gruppe",

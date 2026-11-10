@@ -1,14 +1,14 @@
 // Nachbau von supabase-js für die lokale Vorschau (siehe dev/README.md).
 //
-// Der Vorschau-Server liefert diese Datei anstelle von vendor/supabase-js-*.js aus. Sie
-// bildet nur das nach, was logbuch.js wirklich benutzt: Anmeldung (mit
+// Der Vorschau-Build (vite.config.js, Modus "preview") setzt diese Datei anstelle von
+// @supabase/supabase-js ein. Sie bildet nur das nach, was die App wirklich benutzt: Anmeldung (mit
 // Bestätigungs-/Reset-Link über ein lokales "Postfach"), die Tabellen mit ihren
 // Standardwerten, eindeutigen Schlüsseln und der Zeilen-Sichtbarkeit "nur eigene Zeilen"
 // (RLS), dazu die zwei Edge Functions. Alles liegt in localStorage dieser lokalen Adresse,
-// übersteht also ein Neuladen. Verschlüsselt wird weiter in logbuch.js selbst - hier landet
+// übersteht also ein Neuladen. Verschlüsselt wird weiter in der App selbst - hier landet
 // nur, was auch der echte Server sähe.
 //
-// Neue Tabelle, Spalte mit Standardwert oder neuer Abfrage-Baustein in logbuch.js: hier
+// Neue Tabelle, Spalte mit Standardwert oder neuer Abfrage-Baustein in der App: hier
 // nachziehen, sonst weicht die Vorschau still vom echten Verhalten ab.
 
 const DB_KEY = 'logbuchPreviewDb';

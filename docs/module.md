@@ -1,8 +1,9 @@
 # Module (Aufbau des Frontend-Codes)
 
-Die App-Logik liegt in ES-Modulen unter `js/`, eins je Bereich; `logbuch.js` ist nur der
-Einstieg. Kein Build-Schritt: der Browser lädt die Module selbst (`<script type="module">`),
-die CSP (`script-src 'self'`) erlaubt das ohne Ausnahme. Gestaltung in `logbuch.css`.
+Die App-Logik liegt in ES-Modulen unter `src/`, eins je Bereich; `src/main.js` ist nur der
+Einstieg. Vite bündelt sie beim Build zu einer Datei (docs/freigabe.md). Gestaltung in
+`src/logbuch.css`. Nächste Schritte (Schichten ohne Kreis-Imports, Ordner, TypeScript):
+docs/umbau.md.
 
 Entstanden 2026-11-10 durch Aufteilen der früheren Einzeldatei (15.000 Zeilen) an ihren
 Abschnitts-Überschriften, mit unverändertem Verhalten (alle Rundgang-Bilder vorher/nachher gleich).
@@ -28,7 +29,7 @@ Abschnitts-Überschriften, mit unverändertem Verhalten (alle Rundgang-Bilder vo
 ## Regeln
 
 - **Beim Laden eines Moduls läuft nichts außer Deklarationen.** Event-Listener und anderer
-  Start-Code stehen in `init<Modul>()` am Modulende; `logbuch.js` ruft alle in fester
+  Start-Code stehen in `init<Modul>()` am Modulende; `main.js` ruft alle in fester
   Reihenfolge auf. Grund: die Reihenfolge, in der der Browser Module auswertet, folgt dem
   Import-Netz, nicht der Dateiliste - Code beim Laden griffe sonst auf Konstanten anderer
   Module zu, die noch nicht ausgewertet sind ("Cannot access … before initialization").
@@ -38,9 +39,6 @@ Abschnitts-Überschriften, mit unverändertem Verhalten (alle Rundgang-Bilder vo
   können eine importierte Variable nicht neu zuweisen, eine Eigenschaft eines geteilten
   Objekts schon. `state` bleibt für das, was gerendert wird; `runtime` sind Merker für Abläufe.
   Eine Variable, die nur ihr eigenes Modul setzt, bleibt dort als `let`.
-- **Imports mit `?v=0` schreiben** (`import { x } from './y.js?v=0';`), der pre-commit-Hook
-  setzt die Kennung (Cache-Busting, docs/freigabe.md). Alle Imports eines Moduls müssen
-  dieselbe Adresse nutzen, sonst lädt der Browser es doppelt (zwei getrennte Zustände).
 - **Was `dev/tests.mjs` prüft, muss exportiert sein**; die Vorschau reicht alle Exporte durch.
 - Der Linter (`npm run lint`) meldet nicht importierte Namen - nach dem Verschieben von Code
   zwischen Modulen zuerst laufen lassen.

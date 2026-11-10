@@ -1,6 +1,6 @@
-// Werkzeuge der lokalen Vorschau im Browser (siehe dev/README.md). Der Vorschau-Server
-// hängt an das ausgelieferte logbuch.js eine Zeile an, die install() mit einigen inneren
-// Funktionen der App aufruft - nur lokal, die Datei im Repo bleibt unverändert. So legen
+// Werkzeuge der lokalen Vorschau im Browser (siehe dev/README.md). Der Vorschau-Build
+// (vite.config.js, Modus "preview") hängt an src/main.js Code an, der install() mit den
+// Exporten aller Module aufruft - nur in der Vorschau, nie im veröffentlichten Build. So legen
 // die Beispieldaten denselben Weg zurück wie echte Eingaben (gleiche Verschlüsselung,
 // gleiches Format), statt dass hier ein zweiter Nachbau davon entsteht, der veraltet.
 //
@@ -82,7 +82,7 @@ export function install(app) {
         { key: 'fwohl', name: 'Wohlbefinden', kind: 'computed', groupMembers: ['fstimmung', 'fenergie'], good: null },
         { key: 'fkopf', name: 'Kopfschmerzen', kind: 'scale', section: 'abends', min: 1, max: 4, good: 'low', labels: ['keine', 'leicht', 'mittel', 'stark'] },
         { key: 'fdank', name: 'Dankbar für', kind: 'text', section: 'abends' },
-        // Zeitraum-Felder: Wert im ersten Tag des Zeitraums (siehe periodStart in logbuch.js)
+        // Zeitraum-Felder: Wert im ersten Tag des Zeitraums (siehe periodStart in src/dates.js)
         { key: 'fputz', name: 'Zimmer geputzt', kind: 'scale', min: 1, max: 2, good: 'high', labels: ['Nein', 'Ja'], period: 'week' },
         { key: 'fmonat', name: 'Monatsrückblick', kind: 'text', period: 'month' },
         { key: 'fbuch', name: 'Gelesene Bücher', kind: 'number', period: 'month' },
@@ -105,7 +105,9 @@ export function install(app) {
           sort_order: f.section ? ++inSection[f.section] : ++topOrder,
           period: f.period || 'day',
           // Wie echt angelegt, bevor die Beispiel-Einträge beginnen (Zähler: leer = 0 erst ab dem Anlegen).
-          created_at: new Date(Date.now() - (days + 1) * 86400000).toISOString(),
+          // Mittags am Tag davor, nicht "jetzt minus n Tage": sonst verschöbe die Uhrzeit des Laufs
+          // (Sommer-/Winterzeit dazwischen) den Anlege-Tag, und Bildvergleiche wichen ab.
+          created_at: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() - days - 1, 12).toISOString(),
           enc: await enc(payload),
           ...app.DEF_PLAINTEXT_CLEARED,
         });

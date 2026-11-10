@@ -1,11 +1,10 @@
-// Automatische Tests der Rechenlogik (siehe README.md). Laufen im echten logbuch.js in der
-// Vorschau: der Vorschau-Server reicht die getesteten Funktionen über den Vorschau-Haken
-// durch (internals in dev/server.mjs) - logbuch.js selbst bleibt unverändert, und getestet
-// wird genau der Code, der live läuft.
+// Automatische Tests der Rechenlogik (siehe README.md). Laufen im gebauten App-Code in der
+// Vorschau: der Vorschau-Haken reicht alle Exporte der Module durch (internals, siehe
+// vite.config.js) - getestet wird derselbe gebündelte Code, der live läuft.
 //
 //   node dev/tests.mjs          (Vorschau-Server muss laufen: node dev/server.mjs)
 //
-// Neue Rechenlogik -> hier einen Fall dazu, neue Funktion -> in internals aufnehmen.
+// Neue Rechenlogik -> hier einen Fall dazu, neue Funktion -> in ihrem Modul exportieren.
 import { launch, open } from './lib.mjs';
 
 const { browser, page, problems } = await launch({ device: 'handy' });

@@ -1,54 +1,46 @@
-// Lokaler Vorschau-Server (siehe dev/README.md): liefert die echten App-Dateien aus, nur
-// - vendor/supabase-js-*.js  -> dev/mock-supabase.js (nachgebautes Supabase, kein Netz)
-// - logbuch.js               -> mit einer angehängten Zeile, die dev/preview-hook.js lädt
-// Die Dateien im Repo bleiben unverändert; auf GitHub Pages gibt es diesen Server nicht,
-// dort lässt sich die Vorschau also auch nicht einschalten.
+// Lokaler Vorschau-Server (siehe dev/README.md): baut die App mit Vite im Modus "preview"
+// (vite.config.js) nach dev/.preview/ und liefert sie aus - also derselbe gebündelte Code wie
+// live, nur mit nachgebautem Supabase (dev/mock-supabase.js) und angehängtem Vorschau-Haken
+// (dev/preview-hook.js). Änderungen unter src/ baut er im Hintergrund neu (Seite neu laden).
+// Pfade unter /dev/ (Postfach) kommen direkt aus dem Repo. Auf GitHub Pages gibt es diesen
+// Server nicht, dort lässt sich die Vorschau also auch nicht einschalten.
 //
 // Start: node dev/server.mjs [port]   (Standard 5180, nur auf 127.0.0.1 erreichbar)
 
 import { createServer } from 'node:http';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build } from 'vite';
 
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const OUT = join(ROOT, 'dev', '.preview');
 const PORT = Number(process.argv[2]) || 5180;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json',
   '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
 };
 
-// Vorschau-Haken, angehängt an logbuch.js: lädt alle Module unter js/ und reicht ihre Exporte an
-// dev/preview-hook.js weiter (live, damit z.B. currentDek nach dem Entsperren stimmt). Was
-// dev/tests.mjs prüft, muss deshalb im jeweiligen Modul exportiert sein.
-async function hook() {
-  const mods = (await readdir(join(ROOT, 'js'))).filter((f) => f.endsWith('.js')).sort();
-  return `
-${mods.map((f, i) => `import * as __m${i} from './js/${f}';`).join('\n')}
-const __mods = [${mods.map((_, i) => '__m' + i).join(', ')}];
-const __get = (n) => { for (const m of __mods) if (n in m) return m[n]; return undefined; };
-import('./dev/preview-hook.js').then((m) => m.install({
-  state: __get('state'), render: __get('render'), saveDayNow: __get('saveDayNow'), encryptData: __get('encryptData'),
-  DEF_PLAINTEXT_CLEARED: __get('DEF_PLAINTEXT_CLEARED'), supabase: __get('supabase'), dek: () => __get('currentDek'),
-  internals: new Proxy({}, { get: (_, n) => __get(n) }), // für dev/tests.mjs (reine Rechenlogik)
-}));
-`;
-}
+// Erster Bau abwarten, danach weiter beobachten.
+const watcher = await build({ root: ROOT, mode: 'preview', logLevel: 'warn', build: { watch: {} } });
+await new Promise((ok, fail) => {
+  watcher.on('event', (e) => {
+    if (e.code === 'BUNDLE_END') { e.result?.close?.(); ok(); }
+    if (e.code === 'ERROR') { console.error('Vorschau-Build fehlgeschlagen:', e.error?.message); fail(e.error); }
+  });
+});
 
 createServer(async (req, res) => {
   try {
     let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (path === '/') path = '/logbuch.html';
-    let file = normalize(join(ROOT, path));
-    if (file !== ROOT && !file.startsWith(ROOT + sep)) { res.writeHead(403).end(); return; }
-    if (/^\/vendor\/supabase-js-[^/]+\.js$/.test(path)) file = join(ROOT, 'dev', 'mock-supabase.js');
-    let body = await readFile(file);
-    // Kennungen fürs Cache-Busting weg: sonst wären ./js/x.js und ./js/x.js?v=… zwei verschiedene
-    // Module (doppelter Zustand), und der Haken unten bräuchte die aktuelle Kennung.
-    if (/\.m?js$/.test(path)) body = Buffer.from(body.toString('utf8').replace(/\.js\?v=[0-9a-z]+/g, '.js'));
-    if (path === '/logbuch.js') body = Buffer.concat([body, Buffer.from(await hook())]);
+    const base = path.startsWith('/dev/') ? ROOT : OUT;
+    const file = normalize(join(base, path));
+    if (file !== base && !file.startsWith(base + sep)) { res.writeHead(403).end(); return; }
+    const body = await readFile(file);
     res.writeHead(200, {
       'Content-Type': TYPES[extname(file)] || 'application/octet-stream',
       'Cache-Control': 'no-store', // jede Änderung sofort sichtbar
