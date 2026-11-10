@@ -109,11 +109,11 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
   erzeugte Baseline (die Demo-Daten hängen vom Datum ab).
 - **Ordner pro Schicht** (erledigt 2026-11-11): `src/lib`, `state`, `domain`, `data`, `features`,
   `ui`; der Linter verbietet Importe aus höheren Ordnern. Unterordner je Bereich
-  (`src/ui/<name>/`) erst, wenn ein Bereich aus mehreren Dateien besteht (Event-Registry).
-- **Event-Registry**: die Event-Delegation in `events.js` (über 1.400 Zeilen) wird eine Tabelle
-  `{ [action]: handler }`, je Bereich eine Datei. Vorher prüfen, ob Reihenfolge oder frühe
-  `return`s zwischen Zweigen zählen; die gemeinsame Vorarbeit (`state.notice = null` u. ä.)
-  bleibt im Verteiler.
+  (`src/ui/<name>/`) erst, wenn ein Bereich aus mehreren Dateien besteht.
+- **Event-Registry** (erledigt 2026-11-11, Klicks): Tabellen `{ action: handler }` je Bereich in
+  `src/ui/actions/`, die gemeinsame Vorarbeit bleibt im Verteiler in `events.js`. Alle 152
+  Zweige maschinell als wörtlich übernommen geprüft. Die übrigen Listener (`change`, `input`,
+  `keydown`) sind klein genug und bleiben vorerst Ketten.
 - **Tests mit Vitest**: jeder Fall aus `dev/tests.mjs` 1:1 als `src/**/*.test.ts`, danach
   `internals` aus `dev/server.mjs` streichen. Rundgänge bleiben Puppeteer.
 - `STRINGS` in `de.ts`/`en.ts`, `CHANGELOG` in eine eigene Datei.

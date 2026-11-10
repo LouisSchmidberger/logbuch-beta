@@ -60,7 +60,8 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 
 ## Konventionen
 
-- Rendering per Template-Strings + Event-Delegation auf `#app` (`data-action`), kein
+- Rendering per Template-Strings + Event-Delegation auf `#app` (`data-action`; Klick-Aktionen als
+  Tabelle je Bereich in `src/ui/actions/`), kein
   virtuelles DOM (bewusst einfach). `render()` ersetzt das ganze `#app` und stellt den Fokus
   wieder her – **neue klickbare Elemente brauchen stabile, eindeutige `data-*`-Merkmale bzw.
   eine id**.
