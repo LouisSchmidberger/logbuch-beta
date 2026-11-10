@@ -5,6 +5,13 @@ import js from '@eslint/js';
 import globals from 'globals';
 import importPlugin from 'eslint-plugin-import';
 
+// Je Schicht ein Verbot: aus allen höheren Ordnern (und dem Einstieg main.js) nichts importieren.
+const layerZones = (layers) => layers.slice(0, -1).map((layer, i) => ({
+  target: `./src/${layer}`,
+  from: [...layers.slice(i + 1).map((l) => `./src/${l}`), './src/main.js'],
+  message: `Schicht "${layer}" importiert nicht von oben (docs/module.md, nach oben über render-request.js).`,
+}));
+
 export default [
   { ignores: ['node_modules/**', 'supabase/**', 'dist/**', 'dev/.preview/**', 'dev/screenshots/**'] },
   js.configs.recommended,
@@ -15,7 +22,12 @@ export default [
     files: ['src/**/*.js'],
     plugins: { import: importPlugin },
     languageOptions: { ecmaVersion: 2024, sourceType: 'module', globals: { ...globals.browser } },
-    rules: { 'import/no-cycle': 'error' },
+    rules: {
+      'import/no-cycle': 'error',
+      'import/no-unresolved': 'error',
+      // Schichten (docs/module.md): ein Ordner importiert nie aus einem höheren.
+      'import/no-restricted-paths': ['error', { zones: layerZones(['lib', 'state', 'domain', 'data', 'features', 'ui']) }],
+    },
   },
   {
     files: ['public/sw.js'],

@@ -38,7 +38,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 
 ## Stack und Hosting
 
-- **Frontend**: `logbuch.html` (Einstieg), ES-Module unter `src/` (`main.js` startet, sonst eins
+- **Frontend**: `logbuch.html` (Einstieg), ES-Module unter `src/<schicht>/` (`main.js` startet, sonst eins
   je Bereich, docs/module.md), `src/logbuch.css`, Vanilla JS, kein Framework. **Build mit Vite**
   (`npm run build` → `dist/`, Hash im Dateinamen statt Cache-Busting von Hand); `public/` geht
   unverändert mit (`sw.js`, Manifest, Icons, Schriften). Umbau-Plan (TypeScript usw.):
@@ -118,7 +118,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
   PC muss funktionieren, gibt aber nicht die Richtung vor.
 - **Texte in beiden Sprachen**: neue Strings immer über `STRINGS`/`t()` in `de` UND `en`,
   in identischer Key-Reihenfolge.
-- **`CHANGELOG`** in `src/changelog.js` ("Was ist neu"): ein Eintrag pro Live-Gang für alles aus der
+- **`CHANGELOG`** in `src/data/changelog.js` ("Was ist neu"): ein Eintrag pro Live-Gang für alles aus der
   Sitzung (de + en), Datum des Live-Gangs; den obersten erweitern, solange er nicht live ist.
   Zwei Stufen: `short` = eine einfache Zeile pro Neuerung fürs Fenster beim Start (für
   jemanden, der die App kaum kennt), `de`/`en` = ausführlicher für "Über Logbuch". Nur Begriffe, die man in der App sieht oder aus dem Alltag kennt, und beschreiben, was man

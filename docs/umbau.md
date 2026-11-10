@@ -107,8 +107,9 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
   Daten → Abläufe → Oberfläche → Start, nach oben nur über `render-request.js`; ESLint
   `import/no-cycle` als Fehler (docs/module.md). Pixelgleich gegen eine am selben Tag neu
   erzeugte Baseline (die Demo-Daten hängen vom Datum ab).
-- **Ordner pro Bereich**: aus den flachen Modulen werden `src/<schicht>/…` bzw.
-  `src/features/<name>/`. Wo Logik und Rendering gemischt sind, zuerst gemeinsam verschieben.
+- **Ordner pro Schicht** (erledigt 2026-11-11): `src/lib`, `state`, `domain`, `data`, `features`,
+  `ui`; der Linter verbietet Importe aus höheren Ordnern. Unterordner je Bereich
+  (`src/ui/<name>/`) erst, wenn ein Bereich aus mehreren Dateien besteht (Event-Registry).
 - **Event-Registry**: die Event-Delegation in `events.js` (über 1.400 Zeilen) wird eine Tabelle
   `{ [action]: handler }`, je Bereich eine Datei. Vorher prüfen, ob Reihenfolge oder frühe
   `return`s zwischen Zweigen zählen; die gemeinsame Vorarbeit (`state.notice = null` u. ä.)

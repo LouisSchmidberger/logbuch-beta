@@ -14,7 +14,8 @@ const root = fileURLToPath(new URL('.', import.meta.url));
 const BROWSERS = ['es2020', 'chrome87', 'edge88', 'firefox78', 'safari14'];
 
 function previewHook() {
-  const mods = readdirSync(`${root}src`).filter((f) => f.endsWith('.js') && f !== 'main.js').sort();
+  const mods = readdirSync(`${root}src`, { recursive: true }).map((f) => f.replace(/\\/g, '/'))
+    .filter((f) => f.endsWith('.js') && f !== 'main.js').sort();
   const code = `
 ${mods.map((f, i) => `import * as __m${i} from './${f}';`).join('\n')}
 import { install as __install } from '../dev/preview-hook.js';
