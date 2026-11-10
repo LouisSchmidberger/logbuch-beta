@@ -1,13 +1,12 @@
-import { isTextKind } from './fields.js';
-import { entryKeyFor, formatKey } from './dates.js';
-import { closeModals, restoreModalFocus, runtime, state } from './state.js';
-import { defaultHabitForm, syncHabitFormFromDom } from './field-form.js';
-import { closeStepDialog, stepDialogOpen, stepEditKey, typeEditKey } from './type-change.js';
-import { closeSectionForm, readSectionFormFromDom } from './section-form.js';
-import { DAY_NOTE_KEY, SECTION_NOTE_PREFIX, commitPendingNoteDraft, sectionShownToday } from './save.js';
+import { restoreModalFocus, runtime, state } from './state.js';
+import { closeHabitForm } from './field-form.js';
+import { closeStepDialog, stepDialogOpen } from './type-change.js';
+import { closeSectionForm } from './section-form.js';
+import { commitPendingNoteDraft, isNoteEditorOpen } from './save.js';
 import { closeRowMenu, closeTimePicker, timePicker } from './row-view.js';
-import { closeWhatsNew } from './about-view.js';
-import { render } from './main-view.js';
+import { requestRender } from './render-request.js';
+import { closeWhatsNew } from './changelog.js';
+import { openFormHasChanges } from './form-baseline.js';
 
 // --- Android-Zurück-Taste schließt offene Overlays/Unterseiten statt die App zu
 // verlassen -------------------------------------------------------------------
@@ -54,50 +53,8 @@ function leaveSubpage() {
 export function isOverlayOpen() {
   return state.menuOpen || !!state.rowMenu || isNoteEditorOpen() || !!state.sectionForm || !!state.resetConfirm || !!state.regenKeyConfirm || !!state.logoutConfirm || state.leaveFormConfirm || !!state.deleteConfirm || !!state.passwordChange || !!state.spareKeyCheck || !!state.emailChange || state.tutorialSkipConfirm || !!state.habitForm || !!state.habitDeleteConfirm || !!state.whatsNew;
 }
-// Der Notiz-Editor gehört zu einem bestimmten Tag in "Heute" und ist nur offen, solange
-// er dort auch sichtbar ist - wechselt man Tag/Tab, speichert render() den Entwurf und
-// schließt ihn (siehe commitPendingNoteDraft).
-// Zusätzlich muss das Feld selbst noch in "Heute" stehen - wird es z.B. über das
-// Zeilen-Menü archiviert, während seine Notiz offen ist, wäre der Editor sonst
-// unsichtbar, zählte aber weiter als offene Ebene.
-export function isNoteEditorOpen() {
-  const ed = state.noteEditor;
-  if (!ed || state.view !== 'today' || ed.dateKey !== entryKeyFor(ed.key, formatKey(state.currentDate))) return false;
-  if (ed.key === DAY_NOTE_KEY) return true;
-  if (ed.key.startsWith(SECTION_NOTE_PREFIX)) return sectionShownToday(ed.key.slice(SECTION_NOTE_PREFIX.length));
-  return activeHabits().some((h) => h.id === ed.key && !isTextKind(h));
-}
 function currentLayerCount() {
   return (isSubpageView(state.view) ? 1 : 0) + (isOverlayOpen() ? 1 : 0) + (timePicker ? 1 : 0);
-}
-// Das Feld-Formular ist eine eigene Ebene innerhalb der Verwaltung: solange es offen
-// ist, zeigt die Verwaltung NUR das Formular (kein Weiterscrollen zu den anderen
-// Feldern, Titel im Seitenkopf, siehe renderManage/renderApp). Geöffnet wird es immer
-// über openHabitForm, das sich die Scroll-Position merkt - closeHabitForm (einziger
-// Schließ-Weg: Speichern, Abbrechen, ←-Button, Wischen, Android-Zurück) bringt einen
-// genau dorthin zurück (per runtime.pendingScrollRestore, eingelöst am Ende von render()).
-// Wurde es über einen Shortcut aus "Heute" geöffnet (returnToTab, lebt bewusst im
-// Formular-Zustand und verschwindet so automatisch mit ihm), geht es danach direkt
-// zurück zum Tab statt in der Verwaltung zu bleiben - die Absicht war dort "jetzt
-// tracken", nicht "verwalten".
-export function openHabitForm(form) {
-  runtime.habitFormReturnScrollY = window.scrollY;
-  state.habitForm = form;
-  render();
-  markFormBaseline();
-  window.scrollTo(0, 0);
-  // Nur beim Neuanlegen direkt den Namen fokussieren (öffnet auf dem Handy gleich die
-  // Tastatur, funktioniert nur zuverlässig synchron aus einem Klick-Handler) - ohne
-  // Namen geht es dort nicht weiter. Beim Bearbeiten will man meist etwas anderes
-  // ändern; dort bleibt der Fokus auf der Seitenüberschrift (siehe renderApp).
-  if (!form.defId) requestAnimationFrame(() => document.getElementById('habit-form-name')?.focus());
-}
-export function closeHabitForm() {
-  const returnToTab = state.habitForm?.returnToTab;
-  state.habitForm = null;
-  if (returnToTab && state.view === 'manage') state.view = state.previousTabView || 'today';
-  runtime.pendingScrollRestore = runtime.habitFormReturnScrollY;
-  runtime.habitFormReturnScrollY = null;
 }
 // ←-Button und Wischen auf einer Unterseite: bei offenem Feld-Formular zurück zur
 // Liste (bzw. zum Tab, siehe returnToTab), sonst die Unterseite verlassen.
@@ -107,46 +64,6 @@ export function subpageBack() {
   else leaveSubpage();
 }
 
-// --- Rückfrage beim Verlassen eines geänderten Formulars ----------------------
-// Feld- und Gruppen-Formular: wer sie mit Änderungen anders als über "Abbrechen" verlässt
-// (←, Wischen, Android-Zurück, Menü), wird gefragt, statt still alles zu verlieren.
-// "Abbrechen" verwirft bewusst ohne Rückfrage. Verglichen wird mit dem Stand direkt nach
-// dem Öffnen (form.baseline, gesetzt von markFormBaseline) - nur die gespeicherten
-// Werte, keine reinen Anzeige-Zustände (Fehler, aufgeklappte Teile). Formulare ohne
-// baseline (Tutorial) fragen nie: dort gibt es eigene Wege (Überspringen-Rückfrage).
-function habitFormSnapshot(f) {
-  const snap = {};
-  for (const k of Object.keys(defaultHabitForm())) snap[k] = f[k];
-  snap.labels = f.labelsEnabled ? f.labels.slice(0, f.max - f.min + 1) : null;
-  snap.members = [...f.members].sort();
-  snap.schedule = f.schedule.mode === 'interval'
-    ? { every: f.schedule.every, start: f.schedule.start }
-    : [...f.schedule.days].sort();
-  if (!f.reminderEnabled) { snap.reminderTimes = null; snap.reminderBelow = null; }
-  // "Stufen ändern" offen und schon etwas eingestellt (nur Öffnen zählt nicht).
-  snap.stepEdit = f.stepEdit && stepEditKey(f.stepEdit) !== f.stepEdit.initial ? 'changed' : null;
-  snap.typeEdit = f.typeEdit && typeEditKey(f.typeEdit) !== f.typeEdit.initial ? 'changed' : null;
-  return JSON.stringify(snap);
-}
-function sectionFormSnapshot(sf) {
-  return JSON.stringify({
-    name: sf.name, collapse: sf.collapse, members: [...sf.members].sort(),
-    reminderMinute: sf.reminderEnabled ? sf.reminderMinute : null,
-  });
-}
-// Nach dem ersten render() des Formulars aufrufen: liest es einmal aus dem DOM zurück,
-// damit Normalisierungen beim Einlesen (Uhrzeit, Bezeichnungen) nicht als Änderung zählen.
-export function markFormBaseline() {
-  if (state.habitForm) { syncHabitFormFromDom(); state.habitForm.baseline = habitFormSnapshot(state.habitForm); }
-  else if (state.sectionForm) { readSectionFormFromDom(); state.sectionForm.baseline = sectionFormSnapshot(state.sectionForm); }
-}
-export function openFormHasChanges() {
-  const f = state.habitForm;
-  if (f?.baseline) { syncHabitFormFromDom(); return habitFormSnapshot(f) !== f.baseline; }
-  const sf = state.sectionForm;
-  if (sf?.baseline) { readSectionFormFromDom(); return sectionFormSnapshot(sf) !== sf.baseline; }
-  return false;
-}
 // Führt proceed (rendert NICHT selbst, wie closeHabitForm) sofort aus - oder öffnet bei
 // Änderungen die Rückfrage und führt es erst bei "Verwerfen" aus. Der Aufrufer rendert
 // in beiden Fällen wie gewohnt danach.
@@ -221,18 +138,21 @@ export function syncLayerHistory() {
   }
 }
 
-export function activeHabits() {
-  return state.habits.filter((h) => !h.archivedAt);
-}
-
-export function habitHasData(habitId) {
-  return Object.values(state.entries).some((day) => day[habitId] !== undefined);
-}
-
-export const app = document.getElementById('app');
-
-export function esc(str) {
-  return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Gemeinsamer Schließ-Weg aller Bestätigungs-Modals (Abbrechen-Button, Escape,
+// Android-Zurück) - rendert NICHT selbst, der Aufrufer muss danach render() und
+// restoreModalFocus() aufrufen (closeTopLayer läuft z.B. vor einem eigenen render()).
+export function closeModals() {
+  if (state.whatsNew) closeWhatsNew(); // Schließen = gesehen (speichert)
+  state.deleteConfirm = null;
+  if (!state.passwordChange?.busy) state.passwordChange = null;
+  state.spareKeyCheck = null;
+  if (!state.emailChange?.busy) state.emailChange = null;
+  state.tutorialSkipConfirm = false;
+  state.resetConfirm = null;
+  state.regenKeyConfirm = false;
+  state.logoutConfirm = false;
+  state.leaveFormConfirm = false;
+  runtime.pendingFormLeave = null;
 }
 
 // Was beim Start einmal laufen muss (Event-Listener u.ä.). Nicht beim Laden des Moduls, sondern
@@ -248,7 +168,7 @@ export function initNavigation() {
     // Schließt closeTopLayer dabei mehr als eine Ebene (z.B. Feld-Formular aus dem
     // "Heute"-Shortcut: Formular UND Verwaltung), räumt syncLayerHistory in render() den
     // übrigen History-Eintrag selbst weg.
-    render();
+    requestRender();
   });
   // Scrollen NEBEN dem Menü (Hintergrund/Fenster) soll das Menü schließen, Scrollen AUF
   // dem Menü selbst (falls dessen Inhalt bei Zoom o.ä. nicht mehr auf den Bildschirm
@@ -263,7 +183,7 @@ export function initNavigation() {
   // Zeile (scrollt mit), bleibt aber sonst beim Weiterscrollen unbemerkt offen und würde
   // den nächsten Tipp als Light-Dismiss verschlucken.
   window.addEventListener('scroll', () => {
-    if (state.menuOpen) { state.menuOpen = false; render(); }
+    if (state.menuOpen) { state.menuOpen = false; requestRender(); }
     if (state.rowMenu) closeRowMenu();
   }, { passive: true });
 }

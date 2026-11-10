@@ -1,11 +1,13 @@
-import { addDays, atCurrentPeriod, isPeriodField } from './dates.js';
+import { atCurrentPeriod } from './dates.js';
 import { runtime, state } from './state.js';
-import { app, isSubpageView, subpageBack } from './navigation.js';
+import { isSubpageView, subpageBack } from './navigation.js';
 import { haptic } from './theme.js';
 import { commitLayoutOrder } from './type-change.js';
 import { stickyHeaderBottom } from './save.js';
 import { closeRowMenu, openRowMenu } from './row-view.js';
-import { render } from './main-view.js';
+import { app } from './html.js';
+import { addDays, isPeriodField } from './calendar.js';
+import { requestRender } from './render-request.js';
 
 // --- Swipe-Navigation (Heute/Woche/Monat/Jahr: vorheriger/nächster Zeitraum) --------
 let touchStartX = null;
@@ -304,11 +306,11 @@ export function initGestures() {
     state.rowMenu = null;
 
     if (subpage) {
-      if (dir === -1) { subpageBack(); render(); }
+      if (dir === -1) { subpageBack(); requestRender(); }
       return;
     }
     shiftPeriod(dir);
-    render();
+    requestRender();
   }, { passive: true });
   app.addEventListener('pointerdown', (e) => {
     suppressNextClick = false;

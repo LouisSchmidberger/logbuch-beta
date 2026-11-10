@@ -1,15 +1,15 @@
 import { supabase } from './config.js';
 import { ENCRYPT_PAD_BLOCK, base64ToBuf, decryptData, encryptData } from './crypto.js';
-import { SECTION_COLLAPSE_MODES, defPayloadFromPlainRow, habitFromParts, migrateHabitDefinitions, saveFieldNamesForPush } from './fields.js';
-import { WEEK_STARTS, addDays, formatKey, parseDateKey, startOfDay, startOfWeek, startOfWeekWith } from './dates.js';
+import { DEF_PLAINTEXT_CLEARED, SECTION_COLLAPSE_MODES, defPayloadFromPlainRow, habitFromParts } from './fields.js';
+import { startOfWeek } from './dates.js';
 import { currentDek, runtime, state } from './state.js';
 import { applyLocale, detectInitialLocale, t, tPlain } from './i18n.js';
-import { errorNotice } from './format.js';
-import { rewriteDays } from './type-change.js';
-import { NOTES_KEY, PREV_KEY, renderUnlessTyping, syncedEntries } from './save.js';
-import { pushOffStatus } from './device.js';
-import { unseenChangelog } from './about-view.js';
-import { render } from './main-view.js';
+import { NOTES_KEY, PREV_KEY, rewriteDays, syncedEntries } from './save.js';
+import { errorNotice } from './errors.js';
+import { pushOffStatus, saveFieldNamesForPush } from './push-device.js';
+import { WEEK_STARTS, addDays, formatKey, parseDateKey, startOfDay, startOfWeekWith } from './calendar.js';
+import { renderUnlessTyping, requestRender } from './render-request.js';
+import { unseenChangelog } from './changelog.js';
 
 // --- Datenzugriff --------------------------------------------------------
 // PostgREST liefert höchstens api.max_rows (1000) Zeilen pro Anfrage und kappt still -
@@ -172,31 +172,6 @@ export async function loadSections() {
   state.sections = sections;
 }
 
-// --- Schalter pro Funktion (feature_flags/user_access, siehe docs/freigabe.md) ---
-// Eine neue Funktion geht mit dem normalen Live-Gang raus, sichtbar ist sie erst ab ihrer
-// Stufe. Schalter sperren nur den Einstieg (z.B. eine Feld-Art im Formular), nie
-// vorhandene Daten: wer ein Feld schon hat, sieht es weiter, auch wenn die Stufe sinkt.
-// Unbekannte Schalter und ein Ladefehler gelten als aus.
-let featureStages = {}; // key -> 'off' | 'owner' | 'testers' | 'all'
-export let accessGroup = null; // 'owner' | 'tester' | null (eigene Zeile in user_access)
-export function featureVisible(stage, group) {
-  return stage === 'all' || (stage === 'testers' && (group === 'tester' || group === 'owner')) || (stage === 'owner' && group === 'owner');
-}
-// Gerade ohne Aufrufer (keine Funktion hinter einem Schalter), bleibt als Schnittstelle für neue
-// Schalter (docs/freigabe.md).
-// eslint-disable-next-line no-unused-vars
-function featureOn(key) { return featureVisible(featureStages[key], accessGroup); }
-export async function loadFeatureAccess() {
-  const [flags, access] = await Promise.all([
-    supabase.from('feature_flags').select('key, stage'),
-    supabase.from('user_access').select('access_group').maybeSingle(),
-  ]);
-  if (flags.error || access.error) console.error('[Logbuch] Schalter nicht geladen', flags.error || access.error);
-  featureStages = Object.fromEntries((flags.data || []).map((f) => [f.key, f.stage]));
-  accessGroup = access.data?.access_group ?? null;
-}
-export function clearFeatureAccess() { featureStages = {}; accessGroup = null; }
-
 export async function loadUserSettings() {
   const { data, error } = await supabase.from('user_settings')
     .select('default_reminder_minute, onboarding_completed, locale, summary_notifications, timezone, last_seen_changelog, week_start, week_start_pending').maybeSingle();
@@ -242,17 +217,17 @@ async function syncTimezone() {
   state.userSettings = { ...state.userSettings, timezone: tz };
   // Nur neu rendern, wenn die Anzeige gerade sichtbar ist - ein Hintergrund-Render
   // könnte sonst z.B. ungespeicherte Eingaben im Feld-Formular überschreiben.
-  if (state.menuOpen) render();
+  if (state.menuOpen) requestRender();
 }
 
 export async function saveDefaultReminderMinute(minutes) {
   state.userSettings = { ...state.userSettings, defaultReminderMinute: minutes };
-  render();
+  requestRender();
   const { error } = await supabase.from('user_settings')
     .upsert({ user_id: state.session.user.id, default_reminder_minute: minutes }, { onConflict: 'user_id' });
   if (error) {
     state.notice = errorNotice('notice.saveFailed', error.message);
-    render();
+    requestRender();
   }
 }
 
@@ -280,7 +255,7 @@ export async function presetWeekStartForNewAccount() {
   if (error) return; // dann eben Montag, in den Einstellungen änderbar
   state.userSettings = { ...state.userSettings, weekStart: iso };
   applyWeekStart(iso);
-  render();
+  requestRender();
 }
 
 // Wochen-Einträge umziehen: Werte, Notizen und Sicherungen (_prev) von Wochenfeldern stehen
@@ -306,7 +281,7 @@ export async function runWeekStartChange(newIso) {
   const oldIso = state.userSettings.weekStart;
   const uid = state.session.user.id;
   weekStartChange.running = true;
-  render();
+  requestRender();
   try {
     if (newIso !== oldIso) {
       const mark = await supabase.from('user_settings').upsert({ user_id: uid, week_start_pending: newIso }, { onConflict: 'user_id' });
@@ -354,7 +329,7 @@ export async function runWeekStartChange(newIso) {
     if (newIso !== oldIso) state.notice = { type: 'ok', text: t('settings.weekStartDone') };
   } finally {
     weekStartChange.running = false;
-    render();
+    requestRender();
   }
 }
 // Beim Laden: ein abgebrochener Umzug läuft weiter.
@@ -365,25 +340,52 @@ export function resumeWeekStartChange() {
 
 export async function saveSummaryNotifications(enabled) {
   state.userSettings = { ...state.userSettings, summaryNotifications: enabled };
-  render();
+  requestRender();
   const { error } = await supabase.from('user_settings')
     .upsert({ user_id: state.session.user.id, summary_notifications: enabled }, { onConflict: 'user_id' });
   if (error) {
     state.notice = errorNotice('notice.saveFailed', error.message);
-    render();
+    requestRender();
   }
 }
 
 export async function saveLocale(locale) {
   applyLocale(locale);
   state.userSettings = { ...state.userSettings, locale };
-  render();
+  requestRender();
   saveFieldNamesForPush(); // Textvorlage der Erinnerungen in der neuen Sprache
   const { error } = await supabase.from('user_settings')
     .upsert({ user_id: state.session.user.id, locale }, { onConflict: 'user_id' });
   if (error) {
     state.notice = errorNotice('notice.saveFailed', error.message);
-    render();
+    requestRender();
+  }
+}
+
+// Stellt noch unverschlüsselte Felder auf enc um (beim Laden, im Hintergrund - nur das
+// Gerät hat den Schlüssel, der Server kann das nicht selbst). Vor dem Speichern wird
+// lokal zur Kontrolle wieder entschlüsselt und verglichen - stimmt das nicht exakt,
+// bleibt die Zeile unverändert (lieber noch Klartext als ein unlesbares Feld). Nur für
+// Zeilen, die noch kein enc haben (.is('enc', null)) - läuft die Umstellung auf zwei
+// Geräten gleichzeitig, gewinnt einfach die erste.
+export async function migrateHabitDefinitions(rows) {
+  for (const row of rows) {
+    try {
+      const payload = defPayloadFromPlainRow(row);
+      const enc = await encryptData(currentDek, payload);
+      const check = await decryptData(currentDek, enc);
+      if (JSON.stringify(check) !== JSON.stringify(payload)) {
+        console.error('[Logbuch] Kontroll-Entschlüsselung weicht ab, Feld bleibt vorerst unverschlüsselt', row.id);
+        continue;
+      }
+      const { error } = await supabase.from('habit_definitions')
+        .update({ enc, ...DEF_PLAINTEXT_CLEARED })
+        .eq('id', row.id)
+        .is('enc', null);
+      if (error) console.error('[Logbuch] Feld-Umstellung fehlgeschlagen, nächster Versuch beim nächsten Laden', row.id, error.message);
+    } catch (err) {
+      console.error('[Logbuch] Feld-Umstellung fehlgeschlagen', row.id, err);
+    }
   }
 }
 

@@ -1,17 +1,20 @@
 import { supabase } from './config.js';
-import { reminderTimeInputHtml } from './dates.js';
 import { state } from './state.js';
-import { activeHabits, app, esc } from './navigation.js';
 import { t } from './i18n.js';
-import { errorNotice } from './format.js';
 import { maybeShowSpareKey } from './keys.js';
 import { defaultHabitForm, newHabitForm } from './field-form.js';
-import { isIOSDevice, isStandaloneDisplay, pushBlockedHelp } from './device.js';
-import { installManualHtml, isGuided, onbProgress, sketchHtml } from './auth-view.js';
-import { CHANGELOG } from './about-view.js';
+import { pushBlockedHelp } from './device.js';
+import { installManualHtml, onbProgress, sketchHtml } from './auth-view.js';
 import { packageDefaultChoice } from './templates.js';
 import { renderHabitForm } from './fields-view.js';
-import { iconSvg, render } from './main-view.js';
+import { app, esc, iconSvg } from './html.js';
+import { isIOSDevice, isStandaloneDisplay } from './platform.js';
+import { activeHabits } from './fields.js';
+import { errorNotice } from './errors.js';
+import { reminderTimeInputHtml } from './reminder-input.js';
+import { requestRender } from './render-request.js';
+import { CHANGELOG } from './changelog.js';
+import { TUTORIAL_STEPS, TUTORIAL_STEP_DONE, TUTORIAL_STEP_FIELD, TUTORIAL_STEP_HELLO, TUTORIAL_STEP_REMINDERS, isGuided, whyBox } from './onboarding-state.js';
 
 // --- Onboarding-Tutorial für neue Accounts ----------------------------------
 // state.userSettings.onboardingCompleted kommt aus der DB (Default false bei neuen
@@ -27,13 +30,13 @@ export async function saveOnboardingCompleted() {
   state.tutorialStep = null;
   state.tutorialSkipConfirm = false;
   state.habitForm = null;
-  render();
+  requestRender();
   maybeShowSpareKey(); // direkt nach den Erinnerungen, auch wenn das Tutorial übersprungen wurde
   const { error } = await supabase.from('user_settings')
     .upsert({ user_id: state.session.user.id, onboarding_completed: true, last_seen_changelog: CHANGELOG[0].id }, { onConflict: 'user_id' });
   if (error) {
     state.notice = errorNotice('notice.saveFailed', error.message);
-    render();
+    requestRender();
   }
 }
 
@@ -52,26 +55,10 @@ function renderTutorialSkipConfirm() {
   `;
 }
 
-// Bausteine der Tutorial-Bildschirme (Neufassung 2026-09-29): ein Bildschirm, ein
-// Thema - Symbol, kurze Überschrift, der eine wichtige Satz fett, Begründungen im
-// wiedererkennbaren "Warum?"-Kasten (Leitlinie des Nutzers: nie nur sagen, dass etwas so
-// ist, sondern warum; locker statt förmlich, die App als Freund). Fortschritt über die
-// Leiste des ganzen Einrichtens (onbProgress), das Tutorial ist darin Etappe "kennenlernen".
-// Die Erinnerungen kommen erst nach dem ersten Feld (Nutzer-Entscheidung 2026-10-12): dann
-// weiß man, woran erinnert wird, und die Frage kann das Feld nennen.
-export const TUTORIAL_STEP_HELLO = 1;
-export const TUTORIAL_STEP_FIELD = 2;
-export const TUTORIAL_STEP_DONE = 3;
-export const TUTORIAL_STEP_REMINDERS = 4; // eigene Etappe, nicht Teil des Tutorials
-const TUTORIAL_STEPS = 3; // Unterschritte der Etappe "kennenlernen"
 // Im Tutorial: die Etappe "Logbuch kennenlernen" mit dem Tutorial-Schritt als Unterschritt;
 // der Erinnerungs-Schritt als eigene Etappe ohne Unterschritte.
 function tutorialProgress(step) {
   return step === TUTORIAL_STEP_REMINDERS ? onbProgress('reminders') : onbProgress('setup', [step, TUTORIAL_STEPS]);
-}
-// "Warum?"/"Genauer erklären": aufklappbar - bei "Schritt für Schritt" von Anfang an offen.
-export function whyBox(titleKey, bodyKey) {
-  return `<details class="why-box" ${isGuided() ? 'open' : ''}><summary class="why-box-title">${t(titleKey)}</summary><p>${t(bodyKey)}</p></details>`;
 }
 function tutorialScreen({ step, icon, title, body }) {
   return `

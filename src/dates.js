@@ -1,27 +1,10 @@
-import { MINUTES_PER_DAY, computedMemberHabits, computedUnit, formatClock, formatDuration, habitNumericValue, hasDayGoal, hasWeekGoal, isDurationComputed, isNumberComputed, isSinceComputed, isTimeKind, numberComputedDay, numberGoalScore } from './fields.js';
 import { runtime, state } from './state.js';
-import { esc } from './navigation.js';
 import { formatNumber, t, tPlain } from './i18n.js';
 import { isPatternDisabled } from './theme.js';
 import { formatDMY, mondayFirstWeekdayShortNames } from './format.js';
-import { saveDefaultReminderMinute } from './data.js';
-import { syncHabitFormFromDom } from './field-form.js';
-import { render } from './main-view.js';
+import { esc } from './html.js';
+import { addDays, formatKey, isFutureKey, isPastKey, isPeriodField, isScheduledOn, parseDateKey, periodStartWith, startOfWeekWith } from './calendar.js';
 
-// --- Feste Tage (habit_definitions.schedule) -------------------------------
-// null = täglich, {type:'weekly', days:[0..6]} (0 = Montag) oder "Alle N Tage"
-// {type:'interval', every:2..365, unit:'day', start:'YYYY-MM-DD'} - dran ab dem Starttag in
-// festem Abstand, davor nicht (monatlich/jährlich decken Zeitraum-Felder ab). Gegenstück zur
-// SQL-Funktion public.habit_scheduled_on (Erinnerungen) - beide müssen dieselbe Regel
-// umsetzen; unbekannte Pläne gelten als "dran".
-export function isScheduledOn(schedule, date) {
-  if (schedule?.type === 'interval' && Number.isInteger(schedule.every) && schedule.every >= 2 && /^\d{4}-\d{2}-\d{2}$/.test(schedule.start || '')) {
-    const diff = Math.round((startOfDay(date) - parseDateKey(schedule.start)) / 86400000);
-    return diff >= 0 && diff % schedule.every === 0;
-  }
-  if (schedule?.type !== 'weekly' || !Array.isArray(schedule.days)) return true;
-  return schedule.days.includes((date.getDay() + 6) % 7);
-}
 // Ob ein Feld an einem Tag "dran" ist. Berechnete Felder haben keinen eigenen Plan: dran, sobald
 // eines ihrer aktiven Mitglieder dran ist.
 export function isPlannedOn(h, date) {
@@ -39,25 +22,6 @@ export function scheduleSummary(schedule) {
   return weekdayOrder().filter((d) => schedule.days.includes(d)).map((d) => names[d]).join(', ');
 }
 
-// --- Datum-Helfer ----------------------------------------------------------
-export function formatKey(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-export function startOfDay(date) { const d = new Date(date); d.setHours(0, 0, 0, 0); return d; }
-// Parst einen 'YYYY-MM-DD'-Key als lokales Datum (nicht new Date(string), das UTC
-// interpretiert und je nach Zeitzone einen Tag daneben liegen kann).
-export function parseDateKey(key) {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-// Tage nach heute lassen sich nicht öffnen und nichts eintragen (Nutzer-Entscheidung
-// 2026-10-30, Grenze Mitternacht ohne Einstellung): Pfeil, Wischen, Kalender und die Zellen
-// der Übersicht enden bei heute. Uhrzeiten nach Mitternacht auf der heutigen Seite bleiben.
-export function isFutureKey(dateKey) { return dateKey > formatKey(new Date()); }
-function isPastKey(dateKey) { return dateKey < formatKey(new Date()); }
 // Steht die Ansicht schon beim laufenden Tag/Woche/Monat/Jahr? Dann geht es nicht weiter.
 export function atCurrentPeriod(view = state.view) {
   const now = new Date();
@@ -73,31 +37,12 @@ export function openDayAttrs(d) {
   const key = formatKey(d);
   return isFutureKey(key) ? 'role="img"' : `data-action="open-day" data-date="${key}" tabindex="0" role="button"`;
 }
-// Wochenbeginn (G2, Nutzer-Entscheidung 2026-11-10): ISO-Wochentag des ersten Tags, 1 Montag
-// (Standard), 7 Sonntag, 6 Samstag - aus user_settings.week_start, gesetzt in loadUserSettings.
-// Eigene Variable statt state, weil startOfWeek schon beim Anlegen von state gebraucht wird.
-// Gespeicherte Wochentage (schedule.days, 0 = Montag) bleiben Montag-basiert; nur Anzeige-
-// Reihenfolge und Zeiträume folgen dem Wochenbeginn.
-export const WEEK_STARTS = [1, 7, 6];
-export function startOfWeekWith(date, iso) { const d = startOfDay(date); const off = (d.getDay() - (iso % 7) + 7) % 7; d.setDate(d.getDate() - off); return d; }
 export function startOfWeek(date) { return startOfWeekWith(date, runtime.weekStartIso); }
 // Letzter Tag der Woche als ISO-Wochentag (Gegenstück zu public.habit_week_last_isodow).
 export function weekLastIso(iso = runtime.weekStartIso) { return ((iso + 5) % 7) + 1; }
 // Wochentage (0 = Montag) in Anzeige-Reihenfolge ab dem Wochenbeginn.
 export function weekdayOrder() { return Array.from({ length: 7 }, (_, i) => (runtime.weekStartIso - 1 + i) % 7); }
-// Zeitraum-Felder (period 'week'/'month'/'year', siehe docs/datenmodell.md): ein Wert pro
-// Zeitraum, gespeichert im Eintrag des ersten Tags des Zeitraums. Gegenstück zu
-// public.habit_period_start (SQL) - synchron halten.
-export const PERIODS = ['week', 'month', 'year'];
-export function isPeriodField(h) { return !!h && !!h.period && h.period !== 'day'; }
 export function periodStart(period, date) { return periodStartWith(period, date, runtime.weekStartIso); }
-export function periodStartWith(period, date, iso) {
-  const d = startOfDay(date);
-  if (period === 'week') return startOfWeekWith(d, iso);
-  if (period === 'month') return new Date(d.getFullYear(), d.getMonth(), 1);
-  if (period === 'year') return new Date(d.getFullYear(), 0, 1);
-  return d;
-}
 export function periodEnd(period, date) {
   const start = periodStart(period, date);
   if (period === 'week') return addDays(start, 6);
@@ -112,81 +57,12 @@ export function entryKeyFor(habitId, dateKey) {
   const h = state.habits.find((x) => x.id === habitId);
   return isPeriodField(h) ? formatKey(periodStart(h.period, parseDateKey(dateKey))) : dateKey;
 }
-export function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
-
-// --- Erinnerungszeit-Helfer (Minuten seit Mitternacht <-> "HH:MM") ---------
-// Erinnerungszeiten werden seit dem Onboarding-Tutorial in 15-Minuten-Schritten
-// statt nur zur vollen Stunde gespeichert (siehe docs/erinnerungen.md), als Minuten seit
-// Mitternacht (0-1439) statt Stunde (0-23).
-export function minutesToTimeStr(min) {
-  const h = Math.floor(min / 60), m = min % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-export const REMINDER_TIME_STEP = 15; // Minuten — muss zum Cron-Intervall in send-notifications passen
-// Uhrzeit als Knopf, der die eigene Uhrzeit-Auswahl öffnet (openTimePicker), Minuten nur
-// 00/15/30/45 - so oft läuft der Versand. dataAction sagt, was nach der Auswahl passiert
-// (reminderTimePicked). Wert lesen über readTimeInput(id).
-export function reminderTimeInputHtml(id, minutes, dataAction, disabled, describedBy, labelledBy) {
-  const label = labelledBy ? `aria-labelledby="${labelledBy} ${id}"` : `aria-label="${esc(t('time.label'))}: ${esc(formatClock(minutes))}"`;
-  return `<button type="button" class="time-pick" id="${id}" data-time-input data-action="reminder-time-pick" data-then="${dataAction || ''}" data-value="${minutes}" ${disabled ? 'disabled' : ''} ${describedBy ? `aria-describedby="${describedBy}"` : ''} ${label}>${esc(formatClock(minutes))}</button>`;
-}
-// Minuten seit Mitternacht aus reminderTimeInputHtml (id oder das Element), null wenn es
-// nicht im DOM steht.
-export function readTimeInput(idOrEl) {
-  const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl?.closest('[data-time-input]');
-  return el ? Number(el.dataset.value) : null;
-}
-// Nach der Auswahl: Knopf nachziehen, dann je nach Stelle speichern bzw. ins Formular übernehmen.
-export function reminderTimePicked(id, v) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.dataset.value = String(v);
-  el.textContent = formatClock(v);
-  if (el.hasAttribute('aria-label')) el.setAttribute('aria-label', `${t('time.label')}: ${formatClock(v)}`);
-  if (el.dataset.then === 'menu-default-time') saveDefaultReminderMinute(v);
-  else if (el.dataset.then === 'habit-reminder-time-changed' && state.habitForm) { syncHabitFormFromDom(); render(); }
-  else if (state.sectionForm && id === 'section-form-reminder-time') state.sectionForm.reminderMinute = v;
-}
 
 // 0 = schlechtester, 1 = bester Wert
 export function normalize(habit, value) {
   if (value === undefined || value === null) return null;
   const raw = (value - habit.min) / (habit.max - habit.min);
   return habit.good === 'low' ? 1 - raw : raw;
-}
-
-// Normalisierter Score (0-1) eines Feldes an einem bestimmten Tag. Bei normalen
-// Skala-Feldern der direkt eingetragene Wert; bei berechneten Feldern (kind='computed')
-// der Durchschnitt der normalisierten Werte seiner Mitglieder an dem Tag (null, wenn
-// an dem Tag kein Mitglied befüllt ist — ein berechnetes Feld hält nie einen eigenen Eintrag,
-// ihr Slug taucht nie als Key in state.entries auf). Ändert man die Mitgliederliste
-// eines berechneten Felds, wirkt sich das rückwirkend auf die gesamte Historie aus, da hier bei
-// jedem Aufruf live neu gerechnet wird — beabsichtigt, siehe docs/felder.md.
-export function habitScore(h, dateKey) {
-  if (hasDayGoal(h)) return numberGoalScore(h, habitNumericValue(h, dateKey));
-  if (hasWeekGoal(h)) return null; // bewertet wird nur die Woche, siehe weekGoalWeeks
-  if (isTimeKind(h)) return null; // eine Uhrzeit ist weder gut noch schlecht
-  const day = state.entries[dateKey];
-  if (!day) return null;
-  if (isNumberComputed(h)) return null; // keine Bewertung, siehe isNumberComputed
-  if (h.kind === 'computed') {
-    const memberScores = computedMemberHabits(h)
-      .filter((m) => !isNeutralScale(m)) // unbewertete Mitglieder haben kein Gut/Schlecht zum Mitteln
-      .map((m) => normalize(m, day[m.id]))
-      .filter((s) => s !== null);
-    if (!memberScores.length) return null;
-    return memberScores.reduce((a, b) => a + b, 0) / memberScores.length;
-  }
-  return normalize(h, day[h.id]);
-}
-
-// Ob ein Feld irgendwo in den übergebenen Datums-Keys einen (ggf. errechneten) Score
-// hat — für archivierte Felder in Auswertungs-Ansichten: normale Felder prüfen direkt
-// state.entries, berechnete Felder (die nie selbst einen Entry-Key haben) über habitScore.
-export function habitVisibleInRange(h, dateKeys) {
-  if (isNumberComputed(h)) return dateKeys.some((k) => numberComputedDay(h, k).value !== null);
-  if (h.kind === 'computed') return dateKeys.some((k) => habitScore(h, k) !== null);
-  return dateKeys.some((k) => state.entries[k]?.[h.id] !== undefined);
 }
 
 export function scoreColor(score) {
@@ -239,15 +115,6 @@ export function textOnScore(rgb) {
 export function scoreTextColor(color) {
   return `color-mix(in srgb, ${color} 60%, var(--ink))`;
 }
-// Zahlen/Zähler mit Ziel in "Heute": der Wert gefärbt nach Zielnähe (auch 0 - Nutzer-
-// Entscheidung 2026-10-14: neutral bis zum ersten Eintrag hilft nicht, nach einem von acht
-// Gläsern wäre es trotzdem rot), dahinter "/ Ziel". Bewusst ohne "max"/Haken: ob mindestens
-// oder höchstens, weiß man bei den eigenen Feldern selbst (Nutzer-Entscheidung, störte optisch).
-export function goalValueStyle(h, value) {
-  if (!hasDayGoal(h)) return '';
-  const v = Number(value);
-  return Number.isFinite(v) ? ` style="color:${scoreTextColor(scoreColor(numberGoalScore(h, v)))}"` : '';
-}
 export function goalSuffixHtml(h) {
   const g = h.goal;
   const shown = g.dir === 'range' ? `${formatNumber(g.target)}–${formatNumber(g.max)}` : formatNumber(g.target);
@@ -293,79 +160,3 @@ export function applyGoal(habit, score) {
   return Math.min(1, score / threshold);
 }
 
-// Gesamt-Score eines Tages über alle bewerteten Skala-Felder gemittelt (für Monats-/
-// Jahres-Heatmap). Zahlenwert-Felder (kind='number') UND unbewertete Skala-Felder
-// (isNeutralScale) fließen bewusst nicht ein — beide haben kein Gut/Schlecht, würden
-// die Tages-Gesamtwertung sonst verfälschen. Berechnete Felder ebenfalls nicht: ihre Mitglieder
-// sind schon als eigene Felder drin, sonst zählte jedes Mitglied doppelt (bis
-// 2026-09-27 so, unbeabsichtigt). Unabhängig davon, ob ein Feld in der Auswertung
-// ausgeblendet ist - das betrifft nur die Anzeige.
-export function dayOverallScore(date) {
-  const dateKey = formatKey(date);
-  const day = state.entries[dateKey];
-  if (!day) return null;
-  const scores = state.habits.filter((h) => ((h.kind === 'scale' && !isNeutralScale(h)) || hasDayGoal(h)) && !isPeriodField(h))
-    .map((h) => applyGoal(h, habitScore(h, dateKey)))
-    .filter((s) => s !== null);
-  if (!scores.length) return null;
-  return scores.reduce((a, b) => a + b, 0) / scores.length;
-}
-
-// Durchschnitt + Anzahl je Skala-/berechnetem Feld über eine Menge von Datums-Keys
-// ('YYYY-MM-DD').
-export function computeHabitStats(habits, dateKeys) {
-  return habits.map((h) => {
-    let sum = 0, count = 0, hits = 0, numSum = 0;
-    for (const k of dateKeys) {
-      const s = habitScore(h, k);
-      if (s !== null) {
-        sum += s; count++; if (s >= 0.999) hits++;
-        if (hasDayGoal(h)) numSum += habitNumericValue(h, k);
-      }
-    }
-    return { habit: h, avg: count ? sum / count : null, count, hits, numAvg: count ? numSum / count : null };
-  });
-}
-
-// Werte-Reihe + Kennzahlen eines Zahlenwert-Felds bzw. berechneten Zahlen-Felds über eine
-// Menge von Datums-Keys.
-export function numberFieldStats(habit, dateKeys) {
-  let series = dateKeys
-    .map((k) => ({ key: k, value: habitNumericValue(habit, k) }))
-    .filter((p) => p.value !== undefined && p.value !== null);
-  if (!series.length) return null;
-  if (isTimeKind(habit)) series = unwrapClockSeries(series);
-  const values = series.map((p) => p.value);
-  return {
-    series,
-    count: series.length,
-    min: Math.min(...values),
-    max: Math.max(...values),
-    avg: values.reduce((a, b) => a + b, 0) / values.length,
-    sum: values.reduce((a, b) => a + b, 0),
-    last: series[series.length - 1].value,
-  };
-}
-
-// Uhrzeiten liegen auf einem Kreis: 23:30 und 0:30 sind eine Stunde auseinander, nicht 23.
-// Mittelpunkt = Kreis-Mittel, dann jeder Wert auf die Seite davon, auf der er näher liegt -
-// danach stimmen Durchschnitt, Minimum/Maximum und Verlauf (Anzeige über formatClock).
-function unwrapClockSeries(series) {
-  const angle = (v) => ((v % MINUTES_PER_DAY) / MINUTES_PER_DAY) * 2 * Math.PI;
-  const sin = series.reduce((a, p) => a + Math.sin(angle(p.value)), 0);
-  const cos = series.reduce((a, p) => a + Math.cos(angle(p.value)), 0);
-  const center = ((Math.atan2(sin, cos) / (2 * Math.PI)) * MINUTES_PER_DAY + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const half = MINUTES_PER_DAY / 2;
-  return series.map((p) => ({ ...p, value: center + ((((p.value - center) % MINUTES_PER_DAY) + MINUTES_PER_DAY + half) % MINUTES_PER_DAY) - half }));
-}
-// Ein Wert eines Felds mit Verlauf, wie er angezeigt wird: Uhrzeit, Dauer oder Zahl + Einheit.
-export function formatSeriesValue(h, v) {
-  if (isTimeKind(h)) return formatClock(v);
-  if (isDurationComputed(h)) return `${formatDuration(v)} h`;
-  if (isSinceComputed(h)) {
-    if (h.since?.mode === 'start') return tPlain('since.dayN', { n: formatNumber(v) });
-    return v === 0 ? tPlain('since.today') : tPlain(v === 1 ? 'since.oneDay' : 'since.days', { n: formatNumber(v) });
-  }
-  const unit = isNumberComputed(h) ? computedUnit(h) : h.unit;
-  return formatNumber(v) + (unit ? ` ${unit}` : '');
-}

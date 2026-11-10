@@ -1,14 +1,9 @@
-import { supabase } from './config.js';
-import { decryptData, encryptData } from './crypto.js';
-import { addDays, formatKey, isFutureKey, isPeriodField, minutesToTimeStr, parseDateKey, periodStart, scoreColor, scoreTextColor, startOfWeek } from './dates.js';
-import { currentDek, state } from './state.js';
-import { esc } from './navigation.js';
+import { periodStart, scoreColor, scoreTextColor, startOfWeek } from './dates.js';
+import { state } from './state.js';
 import { formatNumber, t, tPlain } from './i18n.js';
-import { clockUses12h } from './format.js';
-import { CHOICE_STEP_CAP } from './field-form.js';
-import { valueAsText } from './type-change.js';
-import { isOpenToday, renderNote, renderRowMenuButton, renderSectionMenuPanel } from './row-view.js';
-import { round1 } from './about-view.js';
+import { clockUses12h, round1 } from './format.js';
+import { esc } from './html.js';
+import { addDays, formatKey, isFutureKey, isPeriodField, minutesToTimeStr, parseDateKey } from './calendar.js';
 
 // --- Habit-Definitionen ----------------------------------------------------
 // Kommen jetzt aus der Tabelle habit_definitions (pro Nutzer frei verwaltbar, siehe
@@ -122,71 +117,6 @@ export function newHabitKey() {
   } while (existing.has(key));
   return key;
 }
-// Stellt noch unverschlüsselte Felder auf enc um (beim Laden, im Hintergrund - nur das
-// Gerät hat den Schlüssel, der Server kann das nicht selbst). Vor dem Speichern wird
-// lokal zur Kontrolle wieder entschlüsselt und verglichen - stimmt das nicht exakt,
-// bleibt die Zeile unverändert (lieber noch Klartext als ein unlesbares Feld). Nur für
-// Zeilen, die noch kein enc haben (.is('enc', null)) - läuft die Umstellung auf zwei
-// Geräten gleichzeitig, gewinnt einfach die erste.
-export async function migrateHabitDefinitions(rows) {
-  for (const row of rows) {
-    try {
-      const payload = defPayloadFromPlainRow(row);
-      const enc = await encryptData(currentDek, payload);
-      const check = await decryptData(currentDek, enc);
-      if (JSON.stringify(check) !== JSON.stringify(payload)) {
-        console.error('[Logbuch] Kontroll-Entschlüsselung weicht ab, Feld bleibt vorerst unverschlüsselt', row.id);
-        continue;
-      }
-      const { error } = await supabase.from('habit_definitions')
-        .update({ enc, ...DEF_PLAINTEXT_CLEARED })
-        .eq('id', row.id)
-        .is('enc', null);
-      if (error) console.error('[Logbuch] Feld-Umstellung fehlgeschlagen, nächster Versuch beim nächsten Laden', row.id, error.message);
-    } catch (err) {
-      console.error('[Logbuch] Feld-Umstellung fehlgeschlagen', row.id, err);
-    }
-  }
-}
-// Lokale Namensliste für Erinnerungen (siehe sw.js): der Server schickt nur Feld- bzw.
-// Gruppen-IDs, der Service Worker setzt daraus auf dem Gerät die Namen ein. Liegt nur auf diesem
-// Gerät (wie der DEK-Cache), wird bei jeder Änderung der Felder oder der Sprache neu
-// geschrieben (auch der Gruppen) und bei der Konto-Löschung entfernt.
-function openPushDb() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('logbuch-push', 1);
-    req.onupgradeneeded = () => req.result.createObjectStore('meta');
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-export async function saveFieldNamesForPush() {
-  try {
-    const names = Object.fromEntries(state.habits.filter((h) => h.kind !== 'computed').map((h) => [h.defId, h.name]));
-    const sectionNames = Object.fromEntries(state.sections.map((sec) => [sec.id, sec.name]));
-    const db = await openPushDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction('meta', 'readwrite');
-      tx.objectStore('meta').put({
-        names, template: t('push.customReminder'), counterTemplate: t('push.counterReminder'),
-        sectionNames, sectionTemplate: t('push.sectionReminder'),
-      }, 'fieldNames');
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch { /* IndexedDB nicht verfügbar - Erinnerungen bleiben dann beim allgemeinen Text */ }
-}
-export async function clearFieldNamesForPush() {
-  try {
-    const db = await openPushDb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction('meta', 'readwrite');
-      tx.objectStore('meta').delete('fieldNames');
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch { /* egal, nur lokaler Cache */ }
-}
 
 export function isNumberKind(h) { return h.kind === 'number'; }
 // Zähler (kind 'counter', Nutzer-Entscheidung 2026-10-11): eine Zahl, die man im Lauf des
@@ -252,7 +182,7 @@ export function sectionDoneOn(habits, dayEntry) {
   const tracked = habits.filter((h) => h.kind !== 'computed' && !h.optional);
   return tracked.length > 0 && !tracked.some((h) => isOpenToday(h, dayEntry));
 }
-function todayAutoCollapsedIds(blocks, dateKey) {
+export function todayAutoCollapsedIds(blocks, dateKey) {
   if (todayAutoCollapse?.dateKey === dateKey) return todayAutoCollapse.ids;
   const dayEntry = state.entries[dateKey] || {};
   const ids = new Set(blocks
@@ -266,61 +196,6 @@ function todayAutoCollapsedIds(blocks, dateKey) {
 export function expandSection(scope, id) {
   setSectionCollapsed(scope, id, false);
   if (scope === 'today') todayAutoCollapse?.ids.delete(id);
-}
-// doneFields (nur "Heute"): die Felder, die für "✓ erledigt" eingetragen sein müssen. Die
-// Markierung steht immer im DOM (versteckt, solange etwas offen ist), damit
-// syncTodayOpenMarkers sie beim Tippen in Text-Feldern ohne Neuzeichnen umschalten kann.
-function renderSectionToggle(section, scope, collapsed, hasOpen = false, doneFields = null) {
-  const doneMarker = doneFields
-    ? `<span class="section-done" data-done-fields="${doneFields.map((h) => h.id).join(' ')}"${sectionDoneOn(doneFields, state.entries[formatKey(state.currentDate)] || {}) ? '' : ' hidden'}>${t('today.sectionDone')}</span>`
-    : '';
-  const marker = hasOpen
-    ? `<span class="open-dot" aria-hidden="true"></span><span class="visually-hidden">${t('today.sectionHasOpen')}</span>`
-    : doneMarker;
-  const toggle = section.collapse === 'never'
-    ? `<div class="section-toggle section-toggle--${scope} section-toggle--static"><span>${esc(section.name)}${doneMarker}</span></div>`
-    : `
-    <button type="button" class="section-toggle section-toggle--${scope}" data-action="section-toggle" data-section="${section.id}" data-scope="${scope}" aria-expanded="${!collapsed}">
-      <svg class="section-chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <span>${esc(section.name)}${marker}</span>
-    </button>
-  `;
-  // Nur in "Heute" mit Zeilen-Menü (siehe renderRowMenuButton), in der Auswertung nicht.
-  if (scope !== 'today') return toggle;
-  return `
-    <div class="section-head">
-      ${renderRowMenuButton(`section:${section.id}`, t('today.sectionOptions', { name: section.name }))}
-      ${toggle}
-      ${renderSectionMenuPanel(section)}
-    </div>
-    ${renderNote(formatKey(state.currentDate), `section:${section.id}`, t('note.labelSection', { name: section.name }))}
-  `;
-}
-// Rendert Felder nach Gruppen geordnet, in der Reihenfolge der Verwaltung:
-// aufeinanderfolgende Felder ohne Gruppe als ein Stück, jede (nicht leere) Gruppe
-// mit einklappbarer Überschrift. renderList bekommt jeweils ein Array von Feldern.
-export function renderBySection(habits, scope, renderList) {
-  const out = [];
-  let run = [];
-  const flush = () => { if (run.length) { out.push(renderList(run)); run = []; } };
-  const blocks = layoutBlocks(habits);
-  const dateKey = formatKey(state.currentDate);
-  const autoCollapsed = scope === 'today' ? todayAutoCollapsedIds(blocks, dateKey) : new Set();
-  for (const block of blocks) {
-    if (block.type === 'habit') { run.push(block.habit); continue; }
-    if (!block.habits.length) continue;
-    flush();
-    const collapsed = block.section.collapse !== 'never'
-      && (isSectionCollapsed(scope, block.section.id) || autoCollapsed.has(block.section.id));
-    // Eingeklappt verdeckt die Gruppe die Punkte ihrer offenen Felder - dann trägt die
-    // Überschrift den Punkt (siehe isOpenToday), bzw. "erledigt", wenn nichts mehr offen ist.
-    const dayEntry = state.entries[dateKey] || {};
-    const hasOpen = scope === 'today' && collapsed && block.habits.some((h) => isOpenToday(h, dayEntry));
-    const doneFields = scope === 'today' ? block.habits.filter((h) => h.kind !== 'computed') : null;
-    out.push(`<div class="section-block section-block--${scope}${collapsed ? ' section-block--collapsed' : ''}">${renderSectionToggle(block.section, scope, collapsed, hasOpen, doneFields)}${collapsed ? '' : `<div class="section-content">${renderList(block.habits)}</div>`}</div>`);
-  }
-  flush();
-  return out.join('');
 }
 // Ob ein Feld in den Auswertungs-Ansichten (Woche/Monat/Jahr/Gesamt) auftaucht - pro Feld
 // abschaltbar ("In der Auswertung anzeigen"), z.B. wenn einem ein berechnetes Feld daraus
@@ -615,3 +490,41 @@ export function formatDuration(hours) {
   const total = Math.round(Math.abs(hours) * 60);
   return `${hours < 0 ? '-' : ''}${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
+
+// Stufenzahl-Obergrenzen, eine Regel für alle Darstellungen (seit 2026-09-28): jede
+// Stufe mit eigener Bedeutung muss man sehen und gezielt treffen können. Buttons (mit
+// oder ohne Bezeichnungen) und eigene Bezeichnungen beim Schieberegler deshalb höchstens
+// CHOICE_STEP_CAP - mehr Abstufungen machen Antworten eher beliebiger als genauer, und
+// schon 7 nummerierte Buttons passen auf schmalen Handys nicht mehr neben den Namen
+// (siehe .habit-row--buttons). Ein Schieberegler ohne Bezeichnungen steht für "ungefähr
+// wie viel": bis SLIDER_STEP_CAP, mehr lässt sich auf einem Handy nicht mehr einzeln
+// treffen. Bestehende Felder mit mehr Stufen bleiben unverändert nutzbar
+// (lockedChoiceBlocked).
+export const CHOICE_STEP_CAP = 7;
+
+// Ein Wert als Text: Skala mit Bezeichnung -> die Bezeichnung, sonst die Zahl (mit Einheit).
+export function valueAsText(def, v) {
+  if ((def.kind ?? 'scale') === 'scale') return def.labels?.[v - def.min] || formatNumber(v);
+  return def.unit ? `${formatNumber(v)} ${def.unit}` : formatNumber(v);
+}
+
+export function activeHabits() {
+  return state.habits.filter((h) => !h.archivedAt);
+}
+
+export function habitHasData(habitId) {
+  return Object.values(state.entries).some((day) => day[habitId] !== undefined);
+}
+
+// Freies Text-Feld (kind='text'): bewusst immer offenes Textfeld statt Antippen-zum-
+// Bearbeiten wie bei Notizen - wer so ein Feld anlegt, will täglich hineinschreiben.
+// Gespeichert wird automatisch (siehe updateTextValue), kein Speichern-Button. Keine
+// Notizen (wären doppelt zum Freitext).
+// "Noch offen" in "Heute" (seit 2026-09-28): heute geplante, direkt ausfüllbare Felder
+// (nicht berechnet) ohne Wert - dieselbe Logik wie die Erinnerungen (filledFieldIds,
+// get_due_notifications), Notizen zählen also nicht. Markiert wird bewusst nur das
+// Offene (kleiner Punkt, wie "ungelesen" in Mail-Apps), eingetragene Zeilen bleiben wie
+// sie sind. Unter dem Datum "✓ Alles eingetragen", sobald alles da ist; "3 von 7" nur als
+// Option (dayStatusHtml, Nutzer-Entscheidung 2026-10-14: standardmäßig aus, weil eine nicht
+// volle Zahl Druck machen kann).
+export function isOpenToday(h, dayEntry) { return h.kind !== 'computed' && !isCounterKind(h) && !h.optional && dayEntry[h.id] === undefined; }

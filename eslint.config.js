@@ -3,14 +3,19 @@
 // Variablen, versehentliche Zuweisungen. Formatierung prüft er bewusst nicht.
 import js from '@eslint/js';
 import globals from 'globals';
+import importPlugin from 'eslint-plugin-import';
 
 export default [
   { ignores: ['node_modules/**', 'supabase/**', 'dist/**', 'dev/.preview/**', 'dev/screenshots/**'] },
   js.configs.recommended,
   {
-    // App im Browser (ES-Module)
+    // App im Browser (ES-Module). Keine Kreis-Imports (docs/module.md): sie machen die
+    // Lade-Reihenfolge zufällig ("Cannot access … before initialization") und verwischen die
+    // Schichten; nach oben geht es über render-request.js.
     files: ['src/**/*.js'],
+    plugins: { import: importPlugin },
     languageOptions: { ecmaVersion: 2024, sourceType: 'module', globals: { ...globals.browser } },
+    rules: { 'import/no-cycle': 'error' },
   },
   {
     files: ['public/sw.js'],

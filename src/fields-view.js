@@ -1,18 +1,19 @@
-import { MAX_REMINDER_TIMES, MULTI_MAX_OPTIONS, computedMemberHabits, formatClock, isDurationComputed, isNumberComputed, isSinceComputed, isTimeKind, layoutBlocks, multiOptionUsed, sinceSourceCandidate, sinceUsesStages } from './fields.js';
-import { PERIODS, isNeutralScale, isPeriodField, minutesToTimeStr, reminderTimeInputHtml, scheduleSummary, weekdayOrder } from './dates.js';
+import { CHOICE_STEP_CAP, MAX_REMINDER_TIMES, MULTI_MAX_OPTIONS, computedMemberHabits, formatClock, habitHasData, isDurationComputed, isNumberComputed, isSinceComputed, isTimeKind, layoutBlocks, multiOptionUsed, sinceSourceCandidate, sinceUsesStages, valueAsText } from './fields.js';
+import { isNeutralScale, scheduleSummary, weekdayOrder } from './dates.js';
 import { state } from './state.js';
-import { esc, habitHasData } from './navigation.js';
 import { t, tPlain } from './i18n.js';
 import { infoTip, mondayFirstWeekdayShortNames, weekdayLong } from './format.js';
 import { stepperInput } from './notices.js';
-import { CHOICE_STEP_CAP, canConvertToCounter, goalControlHtml, habitFormStepCap, habitFormStepCount, habitFormStepValue, habitFormSummable, isOptionalAllowed, lockedChoiceBlocked, numberGoalAllowed, numberGoalField, periodReminderControl, resizeLabels } from './field-form.js';
-import { fieldMoveStep, stepEditHtml, typeEditHtml, valueAsText } from './type-change.js';
+import { canConvertToCounter, goalControlHtml, habitFormReminderShown, habitFormStepCap, habitFormStepCount, habitFormStepValue, habitFormSummable, isOptionalAllowed, lockedChoiceBlocked, numberGoalAllowed, numberGoalField, periodReminderControl, resizeLabels } from './field-form.js';
+import { fieldMoveStep, stepEditHtml, typeEditHtml } from './type-change.js';
 import { renderSectionForm } from './section-form.js';
 import { SECTION_NOTE_PREFIX, keyHasNotes } from './save.js';
 import { renderHabitFormPreview, tutorialExamplesHtml } from './row-view.js';
 import { renderStarterPackage, renderTemplateConfirm, renderTemplatePicker } from './templates.js';
-import { whyBox } from './tutorial.js';
-import { icon } from './main-view.js';
+import { esc, icon } from './html.js';
+import { reminderTimeInputHtml } from './reminder-input.js';
+import { PERIODS, isPeriodField, minutesToTimeStr } from './calendar.js';
+import { whyBox } from './onboarding-state.js';
 
 // --- Rendering: Felder-Verwaltung -------------------------------------------
 // Titel des Formulars - in der Verwaltung steht er im Seitenkopf (titleInHeader),
@@ -544,11 +545,6 @@ export function renderHabitForm({ titleInHeader = false } = {}) {
   `;
 }
 
-// Zähler mit Zeitraum Woche/Monat/Jahr erinnern nicht (kein "fehlt noch", und Zwischenziele
-// über mehrere Tage gibt es nicht).
-export function habitFormReminderShown(f) {
-  return f.kind !== 'computed' && !(f.kind === 'counter' && f.period !== 'day');
-}
 // Hinweis unter den eigenen Zeiten: wann zu einer Zeit tatsächlich erinnert wird. Bei einem
 // Feld mit nur einer Zeit selbsterklärend (kein Hinweis), bei Zählern immer nötig - sie stehen
 // nie leer.

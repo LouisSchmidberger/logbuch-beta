@@ -1,12 +1,14 @@
-import { habitNumericValue, hasDayGoal, inStats, isCounterKind, isMultiKind, isNumberKind, isScoredKind, isTextKind, renderBySection } from './fields.js';
-import { PERIODS, addDays, applyGoal, computeHabitStats, dayCellAriaLabel, dayOverallScore, formatKey, habitColor, habitScore, habitVisibleInRange, isFutureKey, isNeutralScale, isPeriodField, isPlannedOn, nextPeriodDisabled, openDayAttrs, parseDateKey, periodStart, scoreColor, scorePatternStyle, scoreTextColor, textOnScore, weekdayOrder } from './dates.js';
+import { habitNumericValue, hasDayGoal, inStats, isCounterKind, isMultiKind, isNumberKind, isScoredKind, isTextKind } from './fields.js';
+import { applyGoal, dayCellAriaLabel, habitColor, isNeutralScale, isPlannedOn, nextPeriodDisabled, openDayAttrs, periodStart, scoreColor, scorePatternStyle, scoreTextColor, textOnScore, weekdayOrder } from './dates.js';
 import { runtime, state } from './state.js';
-import { esc } from './navigation.js';
 import { formatNumber, t } from './i18n.js';
 import { formatDMY, mondayFirstWeekdayShortNames, monthName, monthShort, weekdayShort } from './format.js';
 import { dayHasNote, getNote } from './save.js';
-import { hasAnyEntries, periodRangeLabel, renderStatsEmpty, renderStatsLegend, statsFieldName } from './row-view.js';
+import { hasAnyEntries, periodRangeLabel, renderBySection, renderStatsEmpty, renderStatsLegend, statsFieldName } from './row-view.js';
 import { habitAvgLong, habitAvgShort, inFieldStatsList, isYesNoScale, multiWeekRows, renderFieldStatsList, renderNumberCharts, renderStatsRows, renderTextReviews, scaleLabelAt } from './about-view.js';
+import { esc } from './html.js';
+import { computeHabitStats, dayOverallScore, habitScore, habitVisibleInRange } from './scores.js';
+import { PERIODS, addDays, formatKey, isFutureKey, isPeriodField, parseDateKey } from './calendar.js';
 
 // --- Auswertung: Zeitraum-Felder ----------------------------------------------
 // Je Zeitraum ein eigener Block ganz unten, nach allem zu den Tagesfeldern (wie die Bereiche
@@ -204,12 +206,6 @@ export function renderYear() {
   `;
 }
 
-// --- Rendering: Gesamt (alle Einträge seit Beginn) ---------------------------
-// Tage mit mindestens einem Feldwert - ohne zurückgesetzte (leere) Tage, Tage mit nur
-// einer Notiz (_-Schlüssel) und nicht entschlüsselbare Tage.
-export function dayHasValues(day) {
-  return Object.keys(day || {}).some((k) => !k.startsWith('_'));
-}
 function dayHasDayValues(day) {
   return Object.keys(day || {}).some((k) => !k.startsWith('_') && !isPeriodField(state.habits.find((h) => h.id === k)));
 }

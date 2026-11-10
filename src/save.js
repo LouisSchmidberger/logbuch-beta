@@ -1,14 +1,13 @@
 import { supabase } from './config.js';
 import { decryptData, encryptData } from './crypto.js';
-import { DEF_PLAINTEXT_CLEARED, counterReminderThresholds, isCounterKind } from './fields.js';
-import { entryKeyFor, formatKey, isPeriodField, isPlannedOn } from './dates.js';
+import { DEF_PLAINTEXT_CLEARED, activeHabits, counterReminderThresholds, isCounterKind, isTextKind } from './fields.js';
+import { entryKeyFor, isPlannedOn } from './dates.js';
 import { currentDek, runtime, state } from './state.js';
-import { activeHabits, app } from './navigation.js';
 import { t, tPlain } from './i18n.js';
 import { haptic } from './theme.js';
-import { errorNotice } from './format.js';
-import { syncTodayOpenMarkers } from './row-view.js';
-import { render } from './main-view.js';
+import { errorNotice } from './errors.js';
+import { formatKey, isPeriodField } from './calendar.js';
+import { refreshOpenMarkers, renderUnlessTyping, requestRender } from './render-request.js';
 
 // --- Notizen ---------------------------------------------------------------
 // Liegen verschlüsselt im selben Tagesobjekt wie die Werte, unter EINEM reservierten
@@ -104,7 +103,7 @@ export function openNoteEditor(key) {
     const original = getNote(dateKey, key);
     state.noteEditor = { dateKey, key, draft: original, original };
   }
-  render();
+  requestRender();
   const input = document.getElementById('note-input');
   if (input) {
     input.focus({ preventScroll: true });
@@ -154,7 +153,7 @@ export function closeNoteEditor(save) {
   const { key } = state.noteEditor;
   if (save) commitPendingNoteDraft();
   else discardNoteDraft();
-  render();
+  requestRender();
   const focusTarget = key === DAY_NOTE_KEY
     ? document.querySelector('.day-note [data-action="note-edit"]')
     : document.querySelector(`.row-menu-trigger[data-menu="${key}"]`);
@@ -213,11 +212,11 @@ export async function updateHabitPayload(habit, changes) {
   const { error } = await supabase.from('habit_definitions').update({ enc, ...DEF_PLAINTEXT_CLEARED, ...kindChange }).eq('id', habit.defId);
   if (error) {
     state.notice = errorNotice('notice.saveFailed', error.message);
-    render();
+    requestRender();
     return false;
   }
   state.habits = state.habits.map((h) => (h.defId === habit.defId ? next : h));
-  render();
+  requestRender();
   return true;
 }
 
@@ -248,7 +247,7 @@ export async function saveDayNow(dateKey) {
   if (runtime.undecryptableEntryDates.has(dateKey)) {
     state.entries = { ...state.entries, [dateKey]: {} }; // die Änderung nicht stehen lassen - sie ist ja nicht gespeichert
     state.notice = { type: 'error', text: t('notice.dayUndecryptable') };
-    render();
+    requestRender();
     return false;
   }
   if (!currentDek || !state.session) return false; // inzwischen abgemeldet / Schlüssel verworfen
@@ -284,7 +283,7 @@ export async function saveDayNow(dateKey) {
     return true;
   } catch (err) {
     state.notice = errorNotice('notice.saveFailed', err?.message || String(err));
-    render();
+    requestRender();
     return false;
   }
 }
@@ -306,17 +305,6 @@ function mergeDay(base, local, server) {
   if (Object.keys(notes).length) merged[NOTES_KEY] = notes;
   return merged;
 }
-// Neu zeichnen - außer jemand tippt gerade (Fokus in einem Eingabefeld): render() baut
-// die Ansicht neu auf und würde Cursor/Tastatur mitten im Schreiben zurücksetzen. Der
-// zusammengeführte Stand erscheint dann beim nächsten regulären Neuzeichnen.
-export function renderUnlessTyping() {
-  const el = document.activeElement;
-  if (el && app.contains(el) && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type !== 'checkbox' && el.type !== 'range'))) {
-    syncTodayOpenMarkers();
-    return;
-  }
-  render();
-}
 
 // Ein entfernter Wert lässt sich über die Meldung wiederherstellen. Gilt für alle: wer
 // einen Wert "zur Sicherheit nochmal antippt", entfernt ihn (Umschalten, siehe
@@ -333,7 +321,7 @@ function offerUndoRemoval(dateKey, habitId, previous) {
         if (day[habitId] !== undefined) return; // inzwischen neu eingetragen
         day[habitId] = previous;
         state.entries = { ...state.entries, [dateKey]: day };
-        render();
+        requestRender();
         saveDay(dateKey);
       },
     },
@@ -349,7 +337,7 @@ export function handleSelect(dateKey, habitId, value) {
   } else day[habitId] = value;
   state.entries = { ...state.entries, [dateKey]: day };
   haptic();
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -373,7 +361,7 @@ export function handleMultiToggle(dateKey, habitId, optionId) {
   }
   state.entries = { ...state.entries, [dateKey]: day };
   haptic();
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -388,7 +376,7 @@ export function handleSetValue(dateKey, habitId, value) {
   day[habitId] = value;
   state.entries = { ...state.entries, [dateKey]: day };
   haptic();
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -406,7 +394,7 @@ export function updateTextValue(dateKey, habitId, raw) {
   if (raw.trim()) day[habitId] = raw.slice(0, NOTE_MAX_LENGTH);
   else delete day[habitId];
   state.entries = { ...state.entries, [dateKey]: day };
-  syncTodayOpenMarkers();
+  refreshOpenMarkers();
   clearTimeout(pendingDaySaves.get(dateKey));
   pendingDaySaves.set(dateKey, setTimeout(() => flushDaySave(dateKey), TEXT_SAVE_DELAY_MS));
 }
@@ -431,7 +419,7 @@ export function dropPendingDaySaves() {
 export function handleReset(dateKey) {
   state.entries = { ...state.entries, [dateKey]: {} };
   if (state.noteEditor?.dateKey === dateKey) state.noteEditor = null;
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -445,7 +433,7 @@ export function handleClearValue(dateKey, habitId) {
   delete day[habitId];
   state.entries = { ...state.entries, [dateKey]: day };
   haptic();
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -460,7 +448,7 @@ export function handleCounterStep(dateKey, habitId, dir) {
   if (next === 0) delete day[habitId]; else day[habitId] = next;
   state.entries = { ...state.entries, [dateKey]: day };
   haptic();
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -476,13 +464,13 @@ export function handleSaveNumber(dateKey, habitId, rawValue) {
     // würde als null gespeichert (JSON kennt kein Infinity).
     if (!Number.isFinite(num)) {
       state.notice = { type: 'error', text: t('notice.invalidNumber') };
-      render();
+      requestRender();
       return;
     }
     day[habitId] = num;
   }
   state.entries = { ...state.entries, [dateKey]: day };
-  render();
+  requestRender();
   saveDay(dateKey);
 }
 
@@ -493,6 +481,64 @@ export function findLastValue(habitId, beforeOrOnDateKey) {
   if (!keys.length) return null;
   const lastKey = keys[keys.length - 1];
   return { dateKey: lastKey, value: state.entries[lastKey][habitId] };
+}
+
+// --- Stufen ändern (Skala mit Einträgen) -------------------------------------
+// Nutzer-Entscheidung 2026-10-29: die Anzahl Stufen einer Skala mit Einträgen ist änderbar,
+// was aus den bisherigen Werten wird, entscheidet man selbst (je alte Stufe eine neue oder
+// "entfernen"). Die alten Werte bleiben als Sicherung im selben Tages-Eintrag (withPrev) -
+// nicht als archiviertes Zweitfeld: archivierte Felder rechnen in die Tagesfarbe mit
+// (dayOverallScore), alte Tage zählten doppelt.
+// Ablauf über h.stepChange (verschlüsselt in enc): state 'apply' (Definition noch "from") ->
+// Tage umschreiben -> Definition "to", state 'done'. Rückgängig: state 'undo' -> Tage aus der
+// Sicherung -> Definition "from", stepChange null. Jeder Tag schreibt Wert und Sicherung in
+// einem Zug, und welche Tage fertig sind, steht in den Tagen selbst (_prev.c) - ein Abbruch
+// (Netz weg, App zu) läuft beim nächsten Laden weiter (resumeStepChanges).
+const STEP_CHANGE_PARALLEL = 6;
+
+// Schreibt alle noch offenen Tage einer laufenden Umstellung (bzw. Rückgängig) und setzt danach
+// die Definition. Rückgabe: true = fertig. Fortschritt direkt ins DOM (#step-change-progress),
+// ohne render() je Tag.
+// Schreibt viele Tage um (Stufen/Typ ändern, Felder zusammenführen): transform(day, dateKey) gibt
+// den neuen Tag zurück, je STEP_CHANGE_PARALLEL Tage gleichzeitig. Ein nicht gespeicherter Tag
+// bekommt seinen alten Stand zurück - sonst hielte ein zweiter Lauf ihn für fertig.
+export async function rewriteDays(dateKeys, transform, onProgress = () => {}) {
+  let done = 0, failed = 0;
+  const queue = [...dateKeys];
+  onProgress(0, dateKeys.length);
+  const worker = async () => {
+    while (queue.length) {
+      const dateKey = queue.shift();
+      const before = state.entries[dateKey];
+      const changed = transform(before || {}, dateKey);
+      state.entries = { ...state.entries, [dateKey]: changed };
+      if (await saveDay(dateKey)) done++;
+      else {
+        failed++;
+        if (state.entries[dateKey] === changed) {
+          const { [dateKey]: _, ...rest } = state.entries;
+          state.entries = before === undefined ? rest : { ...state.entries, [dateKey]: before };
+        }
+      }
+      onProgress(done + failed, dateKeys.length);
+    }
+  };
+  await Promise.all(Array.from({ length: STEP_CHANGE_PARALLEL }, worker));
+  return { done, failed };
+}
+
+// Der Notiz-Editor gehört zu einem bestimmten Tag in "Heute" und ist nur offen, solange
+// er dort auch sichtbar ist - wechselt man Tag/Tab, speichert render() den Entwurf und
+// schließt ihn (siehe commitPendingNoteDraft).
+// Zusätzlich muss das Feld selbst noch in "Heute" stehen - wird es z.B. über das
+// Zeilen-Menü archiviert, während seine Notiz offen ist, wäre der Editor sonst
+// unsichtbar, zählte aber weiter als offene Ebene.
+export function isNoteEditorOpen() {
+  const ed = state.noteEditor;
+  if (!ed || state.view !== 'today' || ed.dateKey !== entryKeyFor(ed.key, formatKey(state.currentDate))) return false;
+  if (ed.key === DAY_NOTE_KEY) return true;
+  if (ed.key.startsWith(SECTION_NOTE_PREFIX)) return sectionShownToday(ed.key.slice(SECTION_NOTE_PREFIX.length));
+  return activeHabits().some((h) => h.id === ed.key && !isTextKind(h));
 }
 
 // Was beim Start einmal laufen muss (Event-Listener u.ä.). Nicht beim Laden des Moduls, sondern

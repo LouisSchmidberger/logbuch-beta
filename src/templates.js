@@ -1,14 +1,14 @@
-import { MULTI_MAX_OPTIONS, habitFromParts, newMultiOptionId } from './fields.js';
-import { formatKey, isPeriodField } from './dates.js';
+import { MULTI_MAX_OPTIONS, activeHabits, habitFromParts, newMultiOptionId } from './fields.js';
 import { state } from './state.js';
-import { activeHabits, esc, openHabitForm } from './navigation.js';
 import { t, tPlain } from './i18n.js';
 import { convertToCounterRow, defaultHabitForm, habitFormDefinition, habitPayloadFromDefinition, habitToForm, persistHabitForm, resizeLabels } from './field-form.js';
-import { applyStepEditPreset, handleHabitArchive, rewriteDays, typeChangeBlocker, typeChangeTargets, typeEditKindChanged, typeEditStepsChanged } from './type-change.js';
+import { applyStepEditPreset, handleHabitArchive, typeChangeBlocker, typeChangeTargets, typeEditKindChanged, typeEditStepsChanged } from './type-change.js';
 import { handleHabitDelete, insertSection } from './section-form.js';
-import { updateHabitPayload } from './save.js';
+import { rewriteDays, updateHabitPayload } from './save.js';
 import { renderTodayHabitRow } from './row-view.js';
-import { icon } from './main-view.js';
+import { esc, icon } from './html.js';
+import { formatKey, isPeriodField } from './calendar.js';
+import { openHabitForm } from './form-baseline.js';
 
 // --- Vorlagen (Nutzer-Entscheidung 2026-10-30) -------------------------------------------
 // "Neues Feld" beginnt mit "Was willst du festhalten?": fertige Felder zum Antippen, das volle

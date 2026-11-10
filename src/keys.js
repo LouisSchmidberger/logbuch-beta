@@ -1,16 +1,17 @@
 import { supabase } from './config.js';
 import { PBKDF2_ITERATIONS, base64ToBuf, bufToBase64, bufToHex, cacheDek, clearCachedDek, deriveKek, encryptData, generateDek, generateRecoveryKeyBytes, hexToBuf, importRecoveryKeyAsCryptoKey, loadCachedDek, unwrapDek, wrapDek } from './crypto.js';
-import { invalidateTodayAutoCollapse, saveFieldNamesForPush } from './fields.js';
-import { formatKey, parseDateKey, startOfDay, startOfWeek } from './dates.js';
-import { currentDek, currentDekId, restoreModalFocus, runtime, setCurrentDek, state } from './state.js';
+import { invalidateTodayAutoCollapse } from './fields.js';
+import { startOfWeek } from './dates.js';
+import { clearCurrentDek, currentDek, currentDekId, restoreModalFocus, runtime, setCurrentDek, state } from './state.js';
 import { currentLocale, detectInitialLocale, t } from './i18n.js';
-import { errorNotice, translateAuthError, translateDbError } from './format.js';
+import { translateAuthError } from './format.js';
 import { loadEntries, loadHabits, loadSections } from './data.js';
-import { dropPendingDaySaves, renderUnlessTyping } from './save.js';
-import { isOnbInProgress, setOnbInProgress } from './auth-view.js';
-import { setTodayIntroPending } from './row-view.js';
-import { render } from './main-view.js';
-import { clearLoadedAccountState } from './session.js';
+import { dropPendingDaySaves, syncedEntries } from './save.js';
+import { errorNotice, translateDbError } from './errors.js';
+import { saveFieldNamesForPush } from './push-device.js';
+import { formatKey, parseDateKey, startOfDay } from './calendar.js';
+import { renderUnlessTyping, requestRender } from './render-request.js';
+import { isOnbInProgress, setOnbInProgress, setTodayIntroPending } from './onboarding-state.js';
 
 // --- Verschlüsselungs-Lebenszyklus -------------------------------------------
 export async function fetchEncryptionRow(userId) {
@@ -136,7 +137,7 @@ export async function unlockEncryption(userId, password, { verifyPassword = fals
       if (error) throw new Error(/invalid login credentials/i.test(error.message) ? WRONG_PASSWORD : error.message);
     }
     state.encryptionSetupInProgress = true;
-    render();
+    requestRender();
     try {
       await setupEncryption(userId, password);
       // Einmalig beim allerersten Login: die vom Gerät erkannte Sprache statt des
@@ -260,12 +261,12 @@ export async function handleEmailChangeSubmit() {
   ec.error = null;
   if (ec.value.toLowerCase() === (state.session?.user?.email ?? '').toLowerCase()) {
     ec.error = t('emailChange.error.same');
-    render();
+    requestRender();
     document.getElementById('email-change-input')?.select();
     return;
   }
   ec.busy = true;
-  render();
+  requestRender();
   // Passwort nur hier auf dem Gerät prüfen (öffnet es den Schlüssel?) - Supabase selbst
   // verlangt es für die Adresse nicht.
   try {
@@ -274,14 +275,14 @@ export async function handleEmailChangeSubmit() {
     try { await unwrapDekWithPassword(row, ec.password); } catch {
       ec.busy = false;
       ec.error = t('emailChange.error.wrongPassword');
-      render();
+      requestRender();
       document.getElementById('email-change-password')?.select();
       return;
     }
   } catch (err) {
     ec.busy = false;
     ec.error = errorNotice('emailChange.error.failed', err?.message || String(err)).text;
-    render();
+    requestRender();
     return;
   }
   // locale: die Bestätigungs-Mails sind zweisprachig über .Data.locale (wie bei der
@@ -296,13 +297,13 @@ export async function handleEmailChangeSubmit() {
       : error.code === 'email_address_invalid' || error.code === 'validation_failed' ? t('emailChange.error.invalid')
       : error.code === 'over_email_send_rate_limit' ? t('emailChange.error.rateLimit')
       : errorNotice('emailChange.error.failed', error.message).text;
-    render();
+    requestRender();
     document.getElementById('email-change-input')?.focus();
     return;
   }
   ec.sentTo = ec.value;
   ec.password = '';
-  render();
+  requestRender();
 }
 
 export async function handleSpareKeyCheckSubmit() {
@@ -311,7 +312,7 @@ export async function handleSpareKeyCheckSubmit() {
   sc.value = document.getElementById('spare-key-check-input').value;
   sc.busy = true;
   sc.result = null;
-  render();
+  requestRender();
   let row;
   try {
     row = await fetchEncryptionRow(state.session.user.id);
@@ -320,12 +321,12 @@ export async function handleSpareKeyCheckSubmit() {
     sc.busy = false;
     sc.result = 'error';
     sc.errorText = errorNotice('spareKeyCheck.failed', err?.message || String(err)).text;
-    render();
+    requestRender();
     return;
   }
   try { await unwrapDekWithRecoveryKey(row, sc.value); sc.result = 'ok'; } catch { sc.result = 'wrong'; }
   sc.busy = false;
-  render();
+  requestRender();
   if (sc.result === 'wrong') document.getElementById('spare-key-check-input')?.select();
 }
 
@@ -341,14 +342,14 @@ export async function handlePasswordChangeSubmit() {
     focusId = 'password-change-new';
   } else {
     pc.busy = true;
-    render();
+    requestRender();
     try {
       await changePassword(pc.current, pc.next);
       // Wie beim Passwort-Reset: andere Geräte abmelden (Supabase tut es nicht von selbst).
       try { await supabase.auth.signOut({ scope: 'others' }); } catch { /* best effort */ }
       state.passwordChange = null;
       state.notice = { type: 'ok', text: t('passwordChange.saved') };
-      render();
+      requestRender();
       restoreModalFocus();
       return;
     } catch (err) {
@@ -369,7 +370,7 @@ export async function handlePasswordChangeSubmit() {
       }
     }
   }
-  render();
+  requestRender();
   if (focusId) document.getElementById(focusId)?.select();
 }
 
@@ -401,7 +402,7 @@ async function checkDekStillCurrent() {
   state.menuOpen = false;
   state.habitForm = null;
   state.unlockError = t('unlock.keyChanged');
-  render();
+  requestRender();
 }
 // --- Rückkehr in die App -------------------------------------------------------
 // Eine installierte App bleibt oft tage- oder nächtelang im Hintergrund offen. Beim
@@ -460,7 +461,7 @@ export async function regenerateRecoveryKey({ onlyIfUnconfirmed = false } = {}) 
   const { data, error } = await query.select('user_id');
   if (error) {
     state.notice = errorNotice('notice.recoveryKeySaveError', error.message);
-    render();
+    requestRender();
     return;
   }
   if (!data.length) { runtime.spareKeyPending = false; return; } // schon anderswo bestätigt
@@ -468,7 +469,7 @@ export async function regenerateRecoveryKey({ onlyIfUnconfirmed = false } = {}) 
   state.menuOpen = false;
   // wrapped: woran confirmSpareKey erkennt, ob noch genau DIESER Schlüssel gilt.
   state.recoveryKeyToShow = { hex: bufToHex(recoveryBytes), wrapped: wrappedDekRecovery };
-  render();
+  requestRender();
   document.querySelector('.onb h1')?.focus({ preventScroll: true });
 }
 // Unbestätigten Ersatzschlüssel anzeigen - aber erst, wenn das Tutorial durch ist (bzw.
@@ -488,7 +489,7 @@ export async function maybeShowSpareKey() {
 export async function confirmSpareKey() {
   const shown = state.recoveryKeyToShow;
   state.recoveryKeyToShow = null;
-  render();
+  requestRender();
   if (!runtime.spareKeyPending || !state.session || !shown) return;
   const { data, error } = await supabase.from('user_encryption')
     .update({ recovery_key_confirmed: true })
@@ -497,13 +498,13 @@ export async function confirmSpareKey() {
     .select('user_id');
   if (error) {
     state.notice = errorNotice('notice.saveFailed', error.message);
-    render();
+    requestRender();
     return;
   }
   if (!data.length) {
     await regenerateRecoveryKey();
     state.notice = { type: 'error', text: t('recoveryDisplay.replacedElsewhere') };
-    render();
+    requestRender();
     return;
   }
   runtime.spareKeyPending = false;
@@ -511,8 +512,46 @@ export async function confirmSpareKey() {
   setOnbInProgress(false); // Einrichten abgeschlossen
   if (finishedOnboarding) {
     setTodayIntroPending(true); // danach einmal die Karte(n) in "Heute"
-    render();
+    requestRender();
   }
+}
+
+// Verwirft alles aus dem Konto Geladene samt Schlüssel - beim Abmelden und bei einem
+// veralteten Schlüssel (checkDekStillCurrent). Auch offene Formulare, Entwürfe, Dialoge
+// und die zuletzt offene Unterseite gehören zum Konto - sonst sähe sie, wer sich danach
+// auf demselben Gerät anmeldet (z.B. einen Feldnamen im offenen Feld-Formular).
+export function clearLoadedAccountState() {
+  state.entries = {};
+  state.habits = [];
+  state.unsupportedHabits = [];
+  state.noteEditor = null;
+  state.rowMenu = null;
+  state.resetConfirm = null;
+  state.sections = [];
+  state.sectionForm = null;
+  state.sectionDeleteConfirm = null;
+  state.habitForm = null;
+  state.habitFormSaving = false;
+  state.habitDeleteConfirm = null;
+  state.deleteConfirm = null;
+  state.passwordChange = null;
+  state.spareKeyCheck = null;
+  state.emailChange = null;
+  state.regenKeyConfirm = false;
+  state.logoutConfirm = false;
+  state.menuOpen = false;
+  state.recoveryKeyToShow = null;
+  state.unplannedOpenFor = null;
+  state.feedback = { message: '', anonymous: false, busy: false };
+  state.view = 'today';
+  state.previousTabView = 'today';
+  runtime.undecryptableEntryDates = new Set();
+  syncedEntries.clear();
+  clearCurrentDek();
+  runtime.spareKeyPending = false;
+  state.unlockError = null;
+  state.tutorialStep = null;
+  state.tutorialSkipConfirm = false;
 }
 
 // Was beim Start einmal laufen muss (Event-Listener u.ä.). Nicht beim Laden des Moduls, sondern

@@ -10,10 +10,10 @@ darf dort stehen bleiben. Kein "alles oder nichts".
 
 ## Ausgangslage
 
-Schon erledigt: Code in 31 ES-Module unter `src/` aufgeteilt (docs/module.md, mit `runtime` und
+Schon erledigt: Code in ES-Module unter `src/` aufgeteilt (docs/module.md, mit `runtime` und
 `init…()`), ESLint, CI mit Tests, Rundgängen, Abgleich JS ↔ SQL und `deno check` der Functions,
-feste Paketversionen in den Edge Functions, Phase 0 und 1 (unten). Die Module importieren sich
-gegenseitig im Kreis; das läuft nur, weil beim Laden nichts außer Deklarationen passiert.
+feste Paketversionen in den Edge Functions, Phase 0 und 1 (unten). Die Module sind in Schichten
+ohne Kreis-Imports geordnet (docs/module.md).
 
 ## Grundregeln (jede Phase)
 
@@ -103,10 +103,10 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
 
 ### Phase 2: Struktur
 
-- **Schichten ohne Kreis-Imports**: `lib` → `crypto`/`domain` → `data` → `features` → `ui` →
-  `app`; untere importieren nie von oberen. `render()` über ein kleines Modul mit
-  `requestRender()`, das der Start mit der echten `render` verdrahtet. ESLint
-  `import/no-cycle` als Fehler, sobald die Kreise abgebaut sind.
+- **Schichten ohne Kreis-Imports** (erledigt 2026-11-11): Grundlagen → Zustand → Fachlogik →
+  Daten → Abläufe → Oberfläche → Start, nach oben nur über `render-request.js`; ESLint
+  `import/no-cycle` als Fehler (docs/module.md). Pixelgleich gegen eine am selben Tag neu
+  erzeugte Baseline (die Demo-Daten hängen vom Datum ab).
 - **Ordner pro Bereich**: aus den flachen Modulen werden `src/<schicht>/…` bzw.
   `src/features/<name>/`. Wo Logik und Rendering gemischt sind, zuerst gemeinsam verschieben.
 - **Event-Registry**: die Event-Delegation in `events.js` (über 1.400 Zeilen) wird eine Tabelle

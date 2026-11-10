@@ -1,14 +1,16 @@
 import { supabase } from './config.js';
 import { encryptData } from './crypto.js';
-import { SECTION_COLLAPSE_MODES, containerMaxSortOrder, formatClock, invalidateTodayAutoCollapse, layoutBlocks, saveFieldNamesForPush } from './fields.js';
-import { readTimeInput, reminderTimeInputHtml } from './dates.js';
+import { SECTION_COLLAPSE_MODES, containerMaxSortOrder, formatClock, invalidateTodayAutoCollapse, layoutBlocks } from './fields.js';
 import { currentDek, runtime, state } from './state.js';
-import { esc, markFormBaseline } from './navigation.js';
 import { t } from './i18n.js';
-import { errorNotice } from './format.js';
 import { commitLayoutOrder } from './type-change.js';
 import { NOTES_KEY, PREV_KEY, SECTION_NOTE_PREFIX, saveDay, withNote, withPrev } from './save.js';
-import { render } from './main-view.js';
+import { esc } from './html.js';
+import { errorNotice } from './errors.js';
+import { saveFieldNamesForPush } from './push-device.js';
+import { reminderTimeInputHtml } from './reminder-input.js';
+import { requestRender } from './render-request.js';
+import { markFormBaseline, readSectionFormFromDom } from './form-baseline.js';
 
 // --- Gruppen (intern: sections) - Formular -------------------------------------
 // Eigene Ebene der Verwaltung wie das Feld-Formular (openHabitForm): Name + Liste aller
@@ -30,7 +32,7 @@ export function openSectionForm(id, { returnToTab = false } = {}) {
     returnToTab,
   };
   state.sectionDeleteConfirm = null;
-  render();
+  requestRender();
   markFormBaseline();
   window.scrollTo(0, 0);
   if (!sec) requestAnimationFrame(() => document.getElementById('section-form-name')?.focus());
@@ -41,19 +43,6 @@ export function closeSectionForm() {
   if (returnToTab && state.view === 'manage') state.view = state.previousTabView || 'today';
   runtime.pendingScrollRestore = runtime.habitFormReturnScrollY;
   runtime.habitFormReturnScrollY = null;
-}
-export function readSectionFormFromDom() {
-  const sf = state.sectionForm;
-  const nameEl = document.getElementById('section-form-name');
-  if (nameEl) sf.name = nameEl.value;
-  const collapseEl = document.getElementById('section-form-collapse');
-  if (collapseEl && SECTION_COLLAPSE_MODES.includes(collapseEl.value)) sf.collapse = collapseEl.value;
-  const boxes = [...document.querySelectorAll('[data-section-member]')];
-  if (boxes.length) sf.members = boxes.filter((b) => b.checked && !b.disabled).map((b) => b.dataset.sectionMember);
-  const reminderEnabledEl = document.getElementById('section-form-reminder-enabled');
-  if (reminderEnabledEl) sf.reminderEnabled = reminderEnabledEl.checked;
-  const reminderTime = readTimeInput('section-form-reminder-time');
-  if (reminderTime !== null) sf.reminderMinute = reminderTime;
 }
 // Neue Gruppe ans Ende der obersten Ebene -> { id } oder { notice }.
 export async function insertSection(name, collapse, reminderMinute = null) {
@@ -73,7 +62,7 @@ export async function saveSectionForm() {
   const name = sf.name.trim();
   if (!name) {
     state.notice = { type: 'error', text: t('manage.error.sectionNameRequired') };
-    render();
+    requestRender();
     return;
   }
   const collapse = sf.collapse;
@@ -84,7 +73,7 @@ export async function saveSectionForm() {
     const { error } = await supabase.from('habit_sections').update({ enc, reminder_minute: reminderMinute }).eq('id', id);
     if (error) {
       state.notice = errorNotice('notice.saveFailed', error.message);
-      render();
+      requestRender();
       return;
     }
     state.sections = state.sections.map((sec) => (sec.id === id ? { ...sec, name, collapse, reminderMinute } : sec));
@@ -92,7 +81,7 @@ export async function saveSectionForm() {
     const created = await insertSection(name, collapse, reminderMinute);
     if (created.notice) {
       state.notice = created.notice;
-      render();
+      requestRender();
       return;
     }
     id = created.id;
@@ -124,7 +113,7 @@ export async function saveSectionForm() {
   }
   invalidateTodayAutoCollapse(); // neue Einstellung gleich beim Zurück nach "Heute" anwenden
   closeSectionForm();
-  render();
+  requestRender();
 }
 export function renderSectionForm() {
   const sf = state.sectionForm;
@@ -192,13 +181,13 @@ export async function deleteSection(id) {
   const { error } = await supabase.from('habit_sections').delete().eq('id', id);
   if (error) {
     state.notice = errorNotice('notice.deleteFailed', error.message);
-    render();
+    requestRender();
     return;
   }
   state.sections = state.sections.filter((sec) => sec.id !== id);
   state.habits = state.habits.map((h) => (h.sectionId === id ? { ...h, sectionId: null } : h));
   saveFieldNamesForPush();
-  render();
+  requestRender();
   purgeKeyFromEntries(SECTION_NOTE_PREFIX + id);
 }
 
@@ -207,11 +196,11 @@ export async function handleHabitDelete(defId) {
   const { error } = await supabase.from('habit_definitions').delete().eq('id', defId);
   if (error) {
     state.notice = errorNotice('notice.deleteFailed', error.message);
-    render();
+    requestRender();
     return;
   }
   state.habits = state.habits.filter((h) => h.defId !== defId);
-  render();
+  requestRender();
   // Die Feld-Definition ist gelöscht (das war der eigentliche "Löschen"-Schritt) –
   // zusätzlich räumen wir best effort die Werte dieses Feldes aus allen Tages-
   // Einträgen weg, statt sie als verwaisten Schlüssel im verschlüsselten data-JSON
@@ -234,5 +223,5 @@ async function purgeKeyFromEntries(key) {
     state.entries = { ...state.entries, [dateKey]: day };
     await saveDay(dateKey);
   }));
-  render();
+  requestRender();
 }

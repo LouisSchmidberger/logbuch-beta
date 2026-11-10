@@ -1,9 +1,12 @@
-import { parseDateKey, startOfDay, startOfWeek } from './dates.js';
-import { closeModals, currentDek, runtime, state } from './state.js';
-import { isStandaloneDisplay } from './device.js';
-import { rememberOnbIncludesInstall, setOnbInProgress, setOnbMode, signedInHereBefore } from './auth-view.js';
+import { startOfWeek } from './dates.js';
+import { currentDek, runtime, signedInHereBefore, state } from './state.js';
+import { rememberOnbIncludesInstall } from './auth-view.js';
 import { focusTodayField } from './row-view.js';
-import { render } from './main-view.js';
+import { isStandaloneDisplay } from './platform.js';
+import { closeModals } from './navigation.js';
+import { parseDateKey, startOfDay } from './calendar.js';
+import { requestRender } from './render-request.js';
+import { setOnbInProgress, setOnbMode } from './onboarding-state.js';
 
 const DEEP_LINK_VIEWS = ['today', 'week', 'month', 'year'];
 export function parseDeepLink(search) {
@@ -81,8 +84,8 @@ export function initDeeplinks() {
         state.sectionForm = null;
         if (state.deleteConfirm || state.passwordChange || state.spareKeyCheck || state.emailChange || state.resetConfirm || state.regenKeyConfirm || state.logoutConfirm) { closeModals(); runtime.modalTriggerSelector = null; }
       }
-      window.scrollTo(0, 0); // vor render() - das scrollt ggf. danach zum Feld (consumePendingFieldFocus)
-      render();
+      window.scrollTo(0, 0); // vor requestRender() - das scrollt ggf. danach zum Feld (consumePendingFieldFocus)
+      requestRender();
     });
   }
 }

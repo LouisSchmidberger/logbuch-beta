@@ -34,26 +34,28 @@ import './deeplinks.js';
 import './session.js';
 import { ARRIVED_VIA_EMAIL_CHANGE, ARRIVED_VIA_SIGNUP_CONFIRM, MAIL_LINK_ERROR, supabase } from './config.js';
 import { state } from './state.js';
-import { applyLocale, detectInitialLocale, t } from './i18n.js';
+import { applyLocale, detectInitialLocale, initI18n, t } from './i18n.js';
 import { applyTextSize, applyTheme, getTextSize, getThemeOverride } from './theme.js';
-import { isMobileDevice, isStandaloneDisplay, resetIOSZoomOnStandaloneStart } from './device.js';
-import { isInstallGateSkipped } from './auth-view.js';
-import { TUTORIAL_STEP_FIELD } from './tutorial.js';
-import { render } from './main-view.js';
-import { applyDeepLink, parseDeepLink } from './deeplinks.js';
-import { initNavigation } from './navigation.js';
-import { initI18n } from './i18n.js';
+import { resetIOSZoomOnStandaloneStart } from './device.js';
+import { initAuthView, isInstallGateSkipped } from './auth-view.js';
+import { initMainView, render } from './main-view.js';
+import { applyDeepLink, initDeeplinks, parseDeepLink } from './deeplinks.js';
+import { initNavigation, syncLayerHistory } from './navigation.js';
 import { initFormat } from './format.js';
 import { initNotices } from './notices.js';
 import { initData } from './data.js';
 import { initKeys } from './keys.js';
 import { initSave } from './save.js';
-import { initAuthView } from './auth-view.js';
-import { initMainView } from './main-view.js';
 import { initEvents } from './events.js';
 import { initGestures } from './gestures.js';
-import { initDeeplinks } from './deeplinks.js';
 import { initSession } from './session.js';
+import { isMobileDevice, isStandaloneDisplay } from './platform.js';
+import { setRenderHooks } from './render-request.js';
+import { syncTodayOpenMarkers } from './row-view.js';
+import { TUTORIAL_STEP_FIELD } from './onboarding-state.js';
+
+// Die echten Funktionen der Oberfläche für render-request.js eintragen, vor allem anderen.
+setRenderHooks({ render, syncTodayOpenMarkers, syncLayerHistory });
 
 // Start-Code der Module, in der Reihenfolge des früheren Gesamtskripts.
 initNavigation();

@@ -1,22 +1,11 @@
 import { VAPID_PUBLIC_KEY, supabase, urlBase64ToUint8Array } from './config.js';
-import { clearFieldNamesForPush } from './fields.js';
 import { runtime, state } from './state.js';
-import { esc } from './navigation.js';
 import { t } from './i18n.js';
-import { errorNotice, translateDbError } from './format.js';
-import { render } from './main-view.js';
-
-// --- "Zum Homescreen hinzufügen"-Hinweis --------------------------------
-// Auf iOS funktioniert Web-Push NUR, wenn die Seite zum Home-Bildschirm hinzugefügt
-// wurde (harte Plattform-Einschränkung seit iOS 16.4, kein normaler Safari-Tab-Push
-// möglich) - auf Android/Desktop ist das "nice to have", kein Muss. Deshalb früh und
-// deutlich darauf hinweisen, mit iOS-spezifischer Anleitung.
-export function isStandaloneDisplay() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-export function isIOSDevice() {
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
+import { esc } from './html.js';
+import { isIOSDevice, isMobileDevice, isStandaloneDisplay } from './platform.js';
+import { errorNotice, translateDbError } from './errors.js';
+import { requestRender } from './render-request.js';
+import { pushOffStatus } from './push-device.js';
 
 // iOS übernimmt beim Start einer über "Zum Home-Bildschirm" installierten Web-App
 // manchmal einen alten Zoom-Stand (z.B. von Safari zum Zeitpunkt des Hinzufügens)
@@ -41,9 +30,6 @@ export function isAboutSectionCollapsed(key) {
 }
 function installHintText() {
   return isIOSDevice() ? t('installHint.ios') : t('installHint.other');
-}
-export function isMobileDevice() {
-  return isIOSDevice() || /Android/.test(navigator.userAgent);
 }
 // Der dauerhafte In-App-Hinweis lohnt sich nur auf Mobilgeräten: auf iOS ist die
 // Installation zwingend für Push (siehe oben), auf Android zumindest ein spürbares
@@ -93,30 +79,6 @@ export async function checkPushStatus() {
   }
 }
 
-// Beendet die Erinnerungen dieses Geräts für das angemeldete Konto - beim Abmelden und
-// beim Löschen des Kontos: Server-Zeile löschen (solange die Session noch gilt), das Abo
-// im Browser kündigen und die lokale Namensliste leeren. Sonst kämen die Erinnerungen
-// des alten Kontos samt Feldnamen weiter auf das Gerät, auch wenn sich danach jemand
-// anders anmeldet. getRegistration statt serviceWorker.ready: ready wartet ohne
-// registrierten Service Worker für immer. Best effort, darf das Abmelden nie blockieren.
-export async function endPushForThisDevice({ deleteServerRow = true } = {}) {
-  try {
-    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
-    const sub = reg?.pushManager ? await reg.pushManager.getSubscription() : null;
-    if (sub) {
-      if (deleteServerRow) await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-      await sub.unsubscribe();
-    }
-  } catch { /* best effort */ }
-  await clearFieldNamesForPush();
-  if (state.pushStatus !== 'unsupported') state.pushStatus = 'off';
-}
-
-// Ohne Abo: 'blocked', wenn Mitteilungen für Logbuch verboten sind (einmal "Blockieren"
-// gedrückt - der Browser fragt dann nie wieder, nur eine Anleitung hilft weiter), sonst 'off'.
-export function pushOffStatus() {
-  return typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'blocked' : 'off';
-}
 // Kurze Anleitung, wie man Mitteilungen wieder erlaubt - je nach Gerät und ob Logbuch
 // installiert ist. Steht in den Einstellungen und im Tutorial statt einer Sackgasse.
 export function pushBlockedHelp() {
@@ -134,7 +96,7 @@ export function pushBlockedHelp() {
 }
 export async function enablePush() {
   state.pushStatus = 'busy';
-  render();
+  requestRender();
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
@@ -144,7 +106,7 @@ export async function enablePush() {
       // Blockiert fragt der Browser gar nicht erst - ohne Meldung wirkte "Nochmal versuchen"
       // wie kaputt.
       state.notice = { type: 'error', text: t(state.pushStatus === 'blocked' ? 'push.blocked.still' : 'notice.pushPermissionDenied') };
-      render();
+      requestRender();
       return;
     }
     const reg = await navigator.serviceWorker.ready;
@@ -169,12 +131,12 @@ export async function enablePush() {
     state.pushStatus = 'off';
     state.notice = errorNotice('notice.enableFailed', (err.message || err));
   }
-  render();
+  requestRender();
 }
 
 export async function disablePush() {
   state.pushStatus = 'busy';
-  render();
+  requestRender();
   try {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.getSubscription();
@@ -186,5 +148,5 @@ export async function disablePush() {
   } catch (err) {
     state.notice = errorNotice('notice.disableFailed', (err.message || err));
   }
-  render();
+  requestRender();
 }

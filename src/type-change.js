@@ -1,27 +1,17 @@
 import { supabase } from './config.js';
-import { containerMaxSortOrder, invalidateTodayAutoCollapse, isCounterKind, isSinceComputed, layoutBlocks, sinceUsesStages } from './fields.js';
-import { formatKey, isPeriodField } from './dates.js';
+import { CHOICE_STEP_CAP, containerMaxSortOrder, invalidateTodayAutoCollapse, isCounterKind, isSinceComputed, layoutBlocks, sinceUsesStages, valueAsText } from './fields.js';
 import { runtime, state } from './state.js';
-import { esc, markFormBaseline } from './navigation.js';
 import { formatNumber, t, tPlain } from './i18n.js';
-import { errorNotice, formatDMY, infoTip } from './format.js';
+import { formatDMY, infoTip } from './format.js';
 import { stepperInput } from './notices.js';
-import { CHOICE_STEP_CAP, SLIDER_STEP_CAP, habitToForm, resizeLabels, syncHabitFormFromDom } from './field-form.js';
-import { NOTE_MAX_LENGTH, PREV_KEY, getNote, saveDay, updateHabitPayload, withPrev } from './save.js';
-import { render } from './main-view.js';
+import { SLIDER_STEP_CAP, habitToForm, resizeLabels, stepEditKey, syncHabitFormFromDom, typeEditKey } from './field-form.js';
+import { NOTE_MAX_LENGTH, PREV_KEY, getNote, rewriteDays, saveDay, updateHabitPayload, withPrev } from './save.js';
+import { esc } from './html.js';
+import { errorNotice } from './errors.js';
+import { formatKey, isPeriodField } from './calendar.js';
+import { requestRender } from './render-request.js';
+import { markFormBaseline } from './form-baseline.js';
 
-// --- Stufen ändern (Skala mit Einträgen) -------------------------------------
-// Nutzer-Entscheidung 2026-10-29: die Anzahl Stufen einer Skala mit Einträgen ist änderbar,
-// was aus den bisherigen Werten wird, entscheidet man selbst (je alte Stufe eine neue oder
-// "entfernen"). Die alten Werte bleiben als Sicherung im selben Tages-Eintrag (withPrev) -
-// nicht als archiviertes Zweitfeld: archivierte Felder rechnen in die Tagesfarbe mit
-// (dayOverallScore), alte Tage zählten doppelt.
-// Ablauf über h.stepChange (verschlüsselt in enc): state 'apply' (Definition noch "from") ->
-// Tage umschreiben -> Definition "to", state 'done'. Rückgängig: state 'undo' -> Tage aus der
-// Sicherung -> Definition "from", stepChange null. Jeder Tag schreibt Wert und Sicherung in
-// einem Zug, und welche Tage fertig sind, steht in den Tagen selbst (_prev.c) - ein Abbruch
-// (Netz weg, App zu) läuft beim nächsten Laden weiter (resumeStepChanges).
-const STEP_CHANGE_PARALLEL = 6;
 const stepChangeRunning = new Set(); // defIds
 const stepChangeStarting = new Set(); // defIds - Definition wird gerade markiert (zeigt schon "Wird umgestellt")
 // Wie oft jeder Wert eines Felds eingetragen ist: [[Wert, Anzahl], ...] aufsteigend.
@@ -54,11 +44,6 @@ function stepChangeConvert(from, to, preset, old, range) {
     return to.min + Math.round(Math.min(1, Math.max(0, (old - range.lo) / (range.hi - range.lo))) * (to.max - to.min));
   }
   return Math.min(to.max, Math.max(to.min, Math.round(old)));
-}
-// Ein Wert als Text: Skala mit Bezeichnung -> die Bezeichnung, sonst die Zahl (mit Einheit).
-export function valueAsText(def, v) {
-  if ((def.kind ?? 'scale') === 'scale') return def.labels?.[v - def.min] || formatNumber(v);
-  return def.unit ? `${formatNumber(v)} ${def.unit}` : formatNumber(v);
 }
 // Neuer Wert eines alten (null = entfernen): die Zuordnung des Nutzers, sonst der Vorschlag
 // (z.B. für Werte, die inzwischen auf einem anderen Gerät eingetragen wurden).
@@ -112,7 +97,7 @@ export function remapSince(since, sc, undo, stagesNow) {
 async function markStepChange(h, stepChange) {
   if (stepChangeStarting.has(h.defId) || stepChangeRunning.has(h.defId)) return false; // zweiter Tipp
   stepChangeStarting.add(h.defId);
-  render();
+  requestRender();
   try {
     return await updateHabitPayload(h, { stepChange });
   } finally {
@@ -136,43 +121,13 @@ export async function startStepChangeUndo(defId) {
   if (!(await markStepChange(h, { ...h.stepChange, state: 'undo' }))) return false;
   return runStepChange(defId);
 }
-// Schreibt alle noch offenen Tage einer laufenden Umstellung (bzw. Rückgängig) und setzt danach
-// die Definition. Rückgabe: true = fertig. Fortschritt direkt ins DOM (#step-change-progress),
-// ohne render() je Tag.
-// Schreibt viele Tage um (Stufen/Typ ändern, Felder zusammenführen): transform(day, dateKey) gibt
-// den neuen Tag zurück, je STEP_CHANGE_PARALLEL Tage gleichzeitig. Ein nicht gespeicherter Tag
-// bekommt seinen alten Stand zurück - sonst hielte ein zweiter Lauf ihn für fertig.
-export async function rewriteDays(dateKeys, transform, onProgress = () => {}) {
-  let done = 0, failed = 0;
-  const queue = [...dateKeys];
-  onProgress(0, dateKeys.length);
-  const worker = async () => {
-    while (queue.length) {
-      const dateKey = queue.shift();
-      const before = state.entries[dateKey];
-      const changed = transform(before || {}, dateKey);
-      state.entries = { ...state.entries, [dateKey]: changed };
-      if (await saveDay(dateKey)) done++;
-      else {
-        failed++;
-        if (state.entries[dateKey] === changed) {
-          const { [dateKey]: _, ...rest } = state.entries;
-          state.entries = before === undefined ? rest : { ...state.entries, [dateKey]: before };
-        }
-      }
-      onProgress(done + failed, dateKeys.length);
-    }
-  };
-  await Promise.all(Array.from({ length: STEP_CHANGE_PARALLEL }, worker));
-  return { done, failed };
-}
 export async function runStepChange(defId) {
   if (stepChangeRunning.has(defId)) return false;
   let h = state.habits.find((x) => x.defId === defId);
   const sc = h?.stepChange;
   if (!sc || sc.state === 'done') return true;
   stepChangeRunning.add(defId);
-  render(); // zeigt im offenen Formular die Fortschrittszeile (stepEditHtml)
+  requestRender(); // zeigt im offenen Formular die Fortschrittszeile (stepEditHtml)
   try {
     const undo = sc.state === 'undo';
     const todo = Object.keys(state.entries).filter((k) => {
@@ -213,11 +168,6 @@ export async function runStepChange(defId) {
   } finally {
     stepChangeRunning.delete(defId);
   }
-}
-// Formular-Zustand "Stufen ändern": f.stepEdit = { steps, labels (null ohne Bezeichnungen),
-// preset ('spread'|'same'|'custom'), map { "<alt>": neu|null }, confirm }.
-export function stepEditKey(se) {
-  return JSON.stringify([se.steps, se.labels, se.map]);
 }
 export function stepEditCap(h) {
   return h.displayStyle === 'buttons' || h.labels ? CHOICE_STEP_CAP : SLIDER_STEP_CAP;
@@ -428,7 +378,7 @@ export function finishStepChangeAction(f, ok, doneKey, typeChange = false) {
     f.typeRunning = false;
     state.notice = { type: 'error', text: t('stepEdit.failed') };
   }
-  render();
+  requestRender();
   if (ok && h && typeChange && f.baseline) markFormBaseline();
   // Der Dialog ist zu - zurück auf den Knopf, von dem aus er geöffnet wurde.
   document.querySelector('[data-action="step-edit-open"], [data-action="type-edit-open"], [data-action="step-edit-resume"], [data-action="step-undo"]')?.focus({ preventScroll: true });
@@ -438,7 +388,7 @@ export async function resumeStepChanges() {
   for (const h of state.habits.filter((x) => x.stepChange && x.stepChange.state !== 'done')) {
     if (await runStepChange(h.defId)) {
       state.notice = { type: 'ok', text: tPlain('stepEdit.resumed', { name: h.name }) };
-      render();
+      requestRender();
     }
   }
 }
@@ -464,12 +414,6 @@ function kindLabel(kind) {
 export function usedValueRange(h) {
   const used = usedStepValues(h);
   return used.length ? { lo: used[0][0], hi: used[used.length - 1][0] } : { lo: 1, hi: 1 };
-}
-// Formular-Zustand: f.typeEdit = { kind, steps, preset ('round'|'spread'|'custom', nur Skala),
-// unit, map { "<alt>": neu }, confirm }. map hält bei Zahl/Text den Text der Eingabefelder
-// (umgerechnet erst in typeEditFinalMap), bei Skala die gewählte Stufe bzw. null.
-export function typeEditKey(te) {
-  return JSON.stringify([te.kind, te.steps, te.preset, te.unit, te.map]);
 }
 function typeEditScaleMin(h, te) {
   // "Runden" mit Werten unter 1 (z.B. 0 Gläser): die Skala beginnt bei 0 statt sie alle auf 1 zu legen.
@@ -677,13 +621,13 @@ export async function handleHabitArchive(defId, archive) {
     .eq('id', defId);
   if (error) {
     state.notice = errorNotice('notice.actionFailed', error.message);
-    render();
+    requestRender();
     return false;
   }
   state.habits = state.habits
     .map((h) => (h.defId === defId ? { ...h, archivedAt: archive ? new Date().toISOString() : null, ...(archive ? {} : { sortOrder }) } : h))
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  render();
+  requestRender();
   return true;
 }
 
@@ -705,7 +649,7 @@ export async function commitLayoutOrder(items) {
     .map((sec) => (order.has(sec.id) ? { ...sec, sortOrder: order.get(sec.id) } : sec))
     .sort((a, b) => a.sortOrder - b.sortOrder);
   if (sectionOf.size) invalidateTodayAutoCollapse();
-  render();
+  requestRender();
 
   const results = await Promise.all(items.map((it, i) => (it.type === 'section'
     ? supabase.from('habit_sections').update({ sort_order: i + 1 }).eq('id', it.id)
@@ -713,7 +657,7 @@ export async function commitLayoutOrder(items) {
   const failed = results.find((r) => r.error);
   if (failed) {
     state.notice = errorNotice('notice.reorderFailed', failed.error.message);
-    render();
+    requestRender();
   }
 }
 

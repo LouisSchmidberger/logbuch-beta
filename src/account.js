@@ -1,12 +1,13 @@
 import { supabase } from './config.js';
 import { clearCachedDek, decryptData } from './crypto.js';
-import { formatKey } from './dates.js';
 import { clearCurrentDek, currentDek, runtime, state } from './state.js';
 import { t, tPlain } from './i18n.js';
-import { errorNotice } from './format.js';
-import { accessGroup, fetchAllRows } from './data.js';
-import { endPushForThisDevice } from './device.js';
-import { render } from './main-view.js';
+import { fetchAllRows } from './data.js';
+import { accessGroup } from './feature-access.js';
+import { errorNotice } from './errors.js';
+import { endPushForThisDevice } from './push-device.js';
+import { formatKey } from './calendar.js';
+import { requestRender } from './render-request.js';
 
 // --- Datenexport (Auskunftsrecht/Datenportabilität) -------------------------
 // Exportiert die eigenen Rohdaten (nicht das App-interne, transformierte Modell) direkt
@@ -24,7 +25,7 @@ export async function handleExportData() {
   const err = defsRes.error || entriesRes.error || settingsRes.error || subsRes.error || sectionsRes.error;
   if (err) {
     state.notice = errorNotice('notice.exportFailed', err.message);
-    render();
+    requestRender();
     return;
   }
   // habit_entries.data liegt in der DB nur noch als Chiffretext vor - für einen
@@ -79,7 +80,7 @@ export async function handleExportData() {
   // Datei beim tatsächlichen Speichern schon weg ist.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
   state.notice = { type: 'ok', text: t('notice.exportDownloaded') };
-  render();
+  requestRender();
 }
 
 // --- Konto löschen (Recht auf Löschung) -------------------------------------
@@ -102,11 +103,11 @@ export async function handleDeleteAccount() {
   const input = (document.getElementById('delete-confirm-input')?.value || '').trim();
   if (input !== t('deleteAccount.confirmWord')) {
     state.notice = { type: 'error', text: tPlain('deleteAccount.confirmMismatch', { word: t('deleteAccount.confirmWord') }) };
-    render();
+    requestRender();
     return;
   }
   state.deleteConfirm.busy = true;
-  render();
+  requestRender();
 
   const userId = state.session?.user?.id;
   const { data, error } = await supabase.functions.invoke('delete-account');
@@ -118,7 +119,7 @@ export async function handleDeleteAccount() {
     state.notice = code === 'protected'
       ? { type: 'error', text: t('deleteAccount.protected') }
       : errorNotice('notice.deleteFailed', code || error?.message);
-    render();
+    requestRender();
     return;
   }
 

@@ -1,21 +1,20 @@
 import { supabase } from './config.js';
-import { saveFieldNamesForPush } from './fields.js';
-import { clearCurrentDek, currentDek, currentDekUserId, runtime, setCurrentDek, state } from './state.js';
+import { currentDek, currentDekUserId, rememberSignedInHere, runtime, setCurrentDek, state } from './state.js';
 import { t } from './i18n.js';
-import { loadEntries, loadFeatureAccess, loadHabits, loadSections, loadUserSettings, presetWeekStartForNewAccount, repadOldEntries, resumeWeekStartChange } from './data.js';
-import { fetchEncryptionRow, maybeShowSpareKey, unlockEncryption, usableCachedDek } from './keys.js';
+import { loadEntries, loadHabits, loadSections, loadUserSettings, presetWeekStartForNewAccount, repadOldEntries, resumeWeekStartChange } from './data.js';
+import { clearLoadedAccountState, fetchEncryptionRow, maybeShowSpareKey, unlockEncryption, usableCachedDek } from './keys.js';
 import { resumeStepChanges } from './type-change.js';
-import { syncedEntries } from './save.js';
 import { checkPushStatus } from './device.js';
-import { rememberSignedInHere } from './auth-view.js';
-import { render } from './main-view.js';
+import { loadFeatureAccess } from './feature-access.js';
+import { saveFieldNamesForPush } from './push-device.js';
+import { requestRender } from './render-request.js';
 
 // --- Auth-Status & Start ---------------------------------------------------
 export async function completeAuthFlow(userId, password, { verifyPassword = false } = {}) {
   runtime.accountGoneHandled = false;
   await unlockEncryption(userId, password, { verifyPassword });
   state.loading = true;
-  render();
+  requestRender();
   await Promise.all([loadEntries(), loadHabits(), loadUserSettings(), loadSections(), loadFeatureAccess()]);
   state.loading = false;
   saveFieldNamesForPush(); // erst nach loadUserSettings - die Textvorlage hängt an der Sprache
@@ -23,47 +22,9 @@ export async function completeAuthFlow(userId, password, { verifyPassword = fals
   resumeStepChanges();
   resumeWeekStartChange();
   presetWeekStartForNewAccount();
-  checkPushStatus().then(render);
-  render();
+  checkPushStatus().then(requestRender);
+  requestRender();
   maybeShowSpareKey();
-}
-
-// Verwirft alles aus dem Konto Geladene samt Schlüssel - beim Abmelden und bei einem
-// veralteten Schlüssel (checkDekStillCurrent). Auch offene Formulare, Entwürfe, Dialoge
-// und die zuletzt offene Unterseite gehören zum Konto - sonst sähe sie, wer sich danach
-// auf demselben Gerät anmeldet (z.B. einen Feldnamen im offenen Feld-Formular).
-export function clearLoadedAccountState() {
-  state.entries = {};
-  state.habits = [];
-  state.unsupportedHabits = [];
-  state.noteEditor = null;
-  state.rowMenu = null;
-  state.resetConfirm = null;
-  state.sections = [];
-  state.sectionForm = null;
-  state.sectionDeleteConfirm = null;
-  state.habitForm = null;
-  state.habitFormSaving = false;
-  state.habitDeleteConfirm = null;
-  state.deleteConfirm = null;
-  state.passwordChange = null;
-  state.spareKeyCheck = null;
-  state.emailChange = null;
-  state.regenKeyConfirm = false;
-  state.logoutConfirm = false;
-  state.menuOpen = false;
-  state.recoveryKeyToShow = null;
-  state.unplannedOpenFor = null;
-  state.feedback = { message: '', anonymous: false, busy: false };
-  state.view = 'today';
-  state.previousTabView = 'today';
-  runtime.undecryptableEntryDates = new Set();
-  syncedEntries.clear();
-  clearCurrentDek();
-  runtime.spareKeyPending = false;
-  state.unlockError = null;
-  state.tutorialStep = null;
-  state.tutorialSkipConfirm = false;
 }
 
 // Was beim Start einmal laufen muss (Event-Listener u.ä.). Nicht beim Laden des Moduls, sondern
@@ -75,10 +36,10 @@ export function initSession() {
     state.authError = null;
     if (event === 'PASSWORD_RECOVERY') {
       state.passwordRecovery = true;
-      render();
+      requestRender();
       return;
     }
-    if (runtime.authFlowInFlight) { render(); return; }
+    if (runtime.authFlowInFlight) { requestRender(); return; }
     if (session) {
       // Schon entsperrt und dasselbe Konto: z.B. die stündliche Token-Erneuerung oder die
       // Rückkehr in die App - sichtbar ändert sich nichts. Bewusst KEIN render(): der würde
@@ -93,7 +54,7 @@ export function initSession() {
       // der lokale Cache kann hier helfen, sonst muss renderUnlockPrompt() greifen.
       state.loading = true;
       runtime.sessionRestoreInFlight = true;
-      render();
+      requestRender();
       // Ohne Verbindung lässt sich der Cache nicht gegen die aktuelle Kennung prüfen -
       // dann lieber das Passwort abfragen als womöglich mit einem veralteten Schlüssel
       // zu speichern (laden ließe sich ohne Verbindung ohnehin nichts).
@@ -115,7 +76,7 @@ export function initSession() {
           resumeStepChanges();
           resumeWeekStartChange();
           presetWeekStartForNewAccount();
-          checkPushStatus().then(render);
+          checkPushStatus().then(requestRender);
         }
       } finally {
         // Auch bei einem unerwarteten Fehler, sonst bliebe der Startbildschirm für immer stehen.
@@ -126,6 +87,6 @@ export function initSession() {
     } else {
       clearLoadedAccountState();
     }
-    render();
+    requestRender();
   });
 }

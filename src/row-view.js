@@ -1,15 +1,16 @@
-import { MINUTES_PER_DAY, computedMemberHabits, computedUnit, expandSection, formatClock, hasDayGoal, hasWeekGoal, isCounterKind, isDurationComputed, isMultiKind, isNumberComputed, isNumberKind, isSectionCollapsed, isSinceComputed, isTextKind, isTimeKind, numberComputedDay, renderBySection, sectionDoneOn, sinceWhichText, timeDayOffset, timeValueOn, weekGoalTodayHtml } from './fields.js';
-import { NEUTRAL_SELECTED, NEUTRAL_SELECTED_TEXT, PERIODS, addDays, entryKeyFor, formatKey, formatSeriesValue, goalSuffixHtml, goalValueStyle, habitColor, habitScore, isNeutralScale, isPeriodField, isPlannedOn, nextPeriodDisabled, normalize, parseDateKey, periodEnd, periodStart, scoreColor, startOfDay, textOnScore } from './dates.js';
+import { MINUTES_PER_DAY, activeHabits, computedMemberHabits, computedUnit, expandSection, formatClock, hasDayGoal, hasWeekGoal, isCounterKind, isDurationComputed, isMultiKind, isNumberComputed, isNumberKind, isOpenToday, isSectionCollapsed, isSinceComputed, isTextKind, isTimeKind, layoutBlocks, numberComputedDay, sectionDoneOn, sinceWhichText, timeDayOffset, timeValueOn, todayAutoCollapsedIds, weekGoalTodayHtml } from './fields.js';
+import { NEUTRAL_SELECTED, NEUTRAL_SELECTED_TEXT, entryKeyFor, goalSuffixHtml, habitColor, isNeutralScale, isPlannedOn, nextPeriodDisabled, normalize, periodEnd, periodStart, scoreColor, textOnScore } from './dates.js';
 import { state } from './state.js';
-import { activeHabits, app, esc, isNoteEditorOpen, syncLayerHistory } from './navigation.js';
 import { formatNumber, t, tPlain } from './i18n.js';
 import { haptic, isDayProgressShown } from './theme.js';
 import { clockUses12h, dtf, formatDMY, longDate, weekdayLong, weekdayShort } from './format.js';
 import { habitFormStepCount, resizeLabels } from './field-form.js';
-import { DAY_NOTE_KEY, NOTE_MAX_LENGTH, findLastValue, getNote } from './save.js';
-import { isGuided } from './auth-view.js';
-import { dayHasValues } from './stats-view.js';
-import { icon, render } from './main-view.js';
+import { DAY_NOTE_KEY, NOTE_MAX_LENGTH, findLastValue, getNote, isNoteEditorOpen } from './save.js';
+import { app, esc, icon } from './html.js';
+import { formatSeriesValue, goalValueStyle, habitScore } from './scores.js';
+import { PERIODS, addDays, formatKey, isPeriodField, parseDateKey, startOfDay } from './calendar.js';
+import { requestLayerSync, requestRender } from './render-request.js';
+import { isGuided, isTodayIntroPending } from './onboarding-state.js';
 
 // --- Rendering: Habit-Row ---------------------------------------------
 // preview: Vorschau im Feld-Formular (renderHabitFormPreview) - gleiches Aussehen und
@@ -296,13 +297,13 @@ function renderDayMenuPanel() {
 // auf den ⋮-Button derselben Zeile.
 export function openRowMenu(key) {
   state.rowMenu = key;
-  render();
+  requestRender();
   document.querySelector('.row-menu button')?.focus({ preventScroll: true });
 }
 export function closeRowMenu() {
   const key = state.rowMenu;
   state.rowMenu = null;
-  render();
+  requestRender();
   document.querySelector(`.row-menu-trigger[data-menu="${key}"]`)?.focus({ preventScroll: true });
 }
 
@@ -327,18 +328,6 @@ export function renderNote(dateKey, key, label) {
   return `<button type="button" class="row-note" data-action="note-edit" data-note="${key}"><span class="visually-hidden">${t('note.editPrefix')} </span>${esc(text)}</button>`;
 }
 
-// Freies Text-Feld (kind='text'): bewusst immer offenes Textfeld statt Antippen-zum-
-// Bearbeiten wie bei Notizen - wer so ein Feld anlegt, will täglich hineinschreiben.
-// Gespeichert wird automatisch (siehe updateTextValue), kein Speichern-Button. Keine
-// Notizen (wären doppelt zum Freitext).
-// "Noch offen" in "Heute" (seit 2026-09-28): heute geplante, direkt ausfüllbare Felder
-// (nicht berechnet) ohne Wert - dieselbe Logik wie die Erinnerungen (filledFieldIds,
-// get_due_notifications), Notizen zählen also nicht. Markiert wird bewusst nur das
-// Offene (kleiner Punkt, wie "ungelesen" in Mail-Apps), eingetragene Zeilen bleiben wie
-// sie sind. Unter dem Datum "✓ Alles eingetragen", sobald alles da ist; "3 von 7" nur als
-// Option (dayStatusHtml, Nutzer-Entscheidung 2026-10-14: standardmäßig aus, weil eine nicht
-// volle Zahl Druck machen kann).
-export function isOpenToday(h, dayEntry) { return h.kind !== 'computed' && !isCounterKind(h) && !h.optional && dayEntry[h.id] === undefined; }
 function todayTrackedFields() {
   return activeHabits().filter((h) => h.kind !== 'computed' && !isCounterKind(h) && !h.optional && !isPeriodField(h) && isPlannedOn(h, state.currentDate));
 }
@@ -394,17 +383,17 @@ export function focusTodayField(habitId, { editInput = false } = {}) {
   const target = state.habits.find((h) => h.id === habitId);
   if (isPeriodField(target) && isSectionCollapsed('today', `period-${target.period}`)) {
     expandSection('today', `period-${target.period}`);
-    render();
+    requestRender();
   }
   if (target?.sectionId && document.querySelector(`[data-action="section-toggle"][data-section="${target.sectionId}"][data-scope="today"][aria-expanded="false"]`)) {
     expandSection('today', target.sectionId);
-    render();
+    requestRender();
   }
   let trigger = document.querySelector(`.row-menu-trigger[data-menu="${habitId}"]`);
   // Liegt das Feld im eingeklappten "Heute nicht geplant", erst aufklappen.
   if (trigger?.closest('details.unplanned:not([open])')) {
     state.unplannedOpenFor = formatKey(state.currentDate);
-    render();
+    requestRender();
     trigger = document.querySelector(`.row-menu-trigger[data-menu="${habitId}"]`);
   }
   const row = trigger?.closest('.habit-row, .number-box');
@@ -698,7 +687,7 @@ export function openTimePicker(p) {
   dlg.showModal();
   syncTimePicker(); // erst nach showModal: vorher haben die Räder keine Höhe
   dlg.querySelector('[data-tp="cancel"]').focus(); // wie alle Dialoge: Anfangsfokus auf "Abbrechen"
-  syncLayerHistory();
+  requestLayerSync();
 }
 
 function onTimePickerClick(e) {
@@ -746,7 +735,7 @@ export function closeTimePicker({ viaPopstate = false, focus = true } = {}) {
   timePicker = null;
   const dlg = document.getElementById('time-picker');
   if (dlg) { if (dlg.open) dlg.close(); dlg.remove(); }
-  if (!viaPopstate) syncLayerHistory();
+  if (!viaPopstate) requestLayerSync();
   if (focus) document.getElementById(p.triggerId)?.focus({ preventScroll: true });
 }
 
@@ -842,15 +831,6 @@ function renderDayNote(dateKey) {
   `;
 }
 
-// Einmalige Karte(n) oben in "Heute" direkt nach dem Einrichten eines neuen Kontos (nicht
-// für Bestandsnutzer): Kurz und knapp eine Karte, Schritt für Schritt drei nacheinander.
-// Erklärungen gehören dorthin, wo man sie braucht - vorher standen sie nur in "Über Logbuch".
-function isTodayIntroPending() {
-  try { return localStorage.getItem('todayIntroPending') === 'true'; } catch { return false; }
-}
-export function setTodayIntroPending(on) {
-  try { if (on) localStorage.setItem('todayIntroPending', 'true'); else localStorage.removeItem('todayIntroPending'); } catch { /* dann eben ohne Karte */ }
-}
 function renderTodayIntro() {
   if (!isTodayIntroPending() || !activeHabits().length) return '';
   const cards = isGuided() ? ['enter', 'days', 'menu'] : ['enter'];
@@ -1007,4 +987,68 @@ export function renderStatsLegend(kind) {
       <p>${t('stats.legend.common')}</p>
     </details>
   `;
+}
+
+// doneFields (nur "Heute"): die Felder, die für "✓ erledigt" eingetragen sein müssen. Die
+// Markierung steht immer im DOM (versteckt, solange etwas offen ist), damit
+// syncTodayOpenMarkers sie beim Tippen in Text-Feldern ohne Neuzeichnen umschalten kann.
+function renderSectionToggle(section, scope, collapsed, hasOpen = false, doneFields = null) {
+  const doneMarker = doneFields
+    ? `<span class="section-done" data-done-fields="${doneFields.map((h) => h.id).join(' ')}"${sectionDoneOn(doneFields, state.entries[formatKey(state.currentDate)] || {}) ? '' : ' hidden'}>${t('today.sectionDone')}</span>`
+    : '';
+  const marker = hasOpen
+    ? `<span class="open-dot" aria-hidden="true"></span><span class="visually-hidden">${t('today.sectionHasOpen')}</span>`
+    : doneMarker;
+  const toggle = section.collapse === 'never'
+    ? `<div class="section-toggle section-toggle--${scope} section-toggle--static"><span>${esc(section.name)}${doneMarker}</span></div>`
+    : `
+    <button type="button" class="section-toggle section-toggle--${scope}" data-action="section-toggle" data-section="${section.id}" data-scope="${scope}" aria-expanded="${!collapsed}">
+      <svg class="section-chevron" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>${esc(section.name)}${marker}</span>
+    </button>
+  `;
+  // Nur in "Heute" mit Zeilen-Menü (siehe renderRowMenuButton), in der Auswertung nicht.
+  if (scope !== 'today') return toggle;
+  return `
+    <div class="section-head">
+      ${renderRowMenuButton(`section:${section.id}`, t('today.sectionOptions', { name: section.name }))}
+      ${toggle}
+      ${renderSectionMenuPanel(section)}
+    </div>
+    ${renderNote(formatKey(state.currentDate), `section:${section.id}`, t('note.labelSection', { name: section.name }))}
+  `;
+}
+
+// Rendert Felder nach Gruppen geordnet, in der Reihenfolge der Verwaltung:
+// aufeinanderfolgende Felder ohne Gruppe als ein Stück, jede (nicht leere) Gruppe
+// mit einklappbarer Überschrift. renderList bekommt jeweils ein Array von Feldern.
+export function renderBySection(habits, scope, renderList) {
+  const out = [];
+  let run = [];
+  const flush = () => { if (run.length) { out.push(renderList(run)); run = []; } };
+  const blocks = layoutBlocks(habits);
+  const dateKey = formatKey(state.currentDate);
+  const autoCollapsed = scope === 'today' ? todayAutoCollapsedIds(blocks, dateKey) : new Set();
+  for (const block of blocks) {
+    if (block.type === 'habit') { run.push(block.habit); continue; }
+    if (!block.habits.length) continue;
+    flush();
+    const collapsed = block.section.collapse !== 'never'
+      && (isSectionCollapsed(scope, block.section.id) || autoCollapsed.has(block.section.id));
+    // Eingeklappt verdeckt die Gruppe die Punkte ihrer offenen Felder - dann trägt die
+    // Überschrift den Punkt (siehe isOpenToday), bzw. "erledigt", wenn nichts mehr offen ist.
+    const dayEntry = state.entries[dateKey] || {};
+    const hasOpen = scope === 'today' && collapsed && block.habits.some((h) => isOpenToday(h, dayEntry));
+    const doneFields = scope === 'today' ? block.habits.filter((h) => h.kind !== 'computed') : null;
+    out.push(`<div class="section-block section-block--${scope}${collapsed ? ' section-block--collapsed' : ''}">${renderSectionToggle(block.section, scope, collapsed, hasOpen, doneFields)}${collapsed ? '' : `<div class="section-content">${renderList(block.habits)}</div>`}</div>`);
+  }
+  flush();
+  return out.join('');
+}
+
+// --- Rendering: Gesamt (alle Einträge seit Beginn) ---------------------------
+// Tage mit mindestens einem Feldwert - ohne zurückgesetzte (leere) Tage, Tage mit nur
+// einer Notiz (_-Schlüssel) und nicht entschlüsselbare Tage.
+export function dayHasValues(day) {
+  return Object.keys(day || {}).some((k) => !k.startsWith('_'));
 }

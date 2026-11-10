@@ -1,19 +1,20 @@
 import { ARRIVED_VIA_SIGNUP_CONFIRM, supabase } from './config.js';
 import { PBKDF2_ITERATIONS, bufToBase64, cacheDek, deriveKek, formatRecoveryKey, wrapDek } from './crypto.js';
-import { saveFieldNamesForPush } from './fields.js';
-import { runtime, setCurrentDek, state } from './state.js';
-import { app, esc } from './navigation.js';
+import { runtime, setCurrentDek, signedInHereBefore, state } from './state.js';
 import { currentLocale, t, tPlain } from './i18n.js';
 import { TEXT_SIZES, getTextSize, getThemeOverride } from './theme.js';
 import { AUTH_MIN_PASSWORD_LENGTH, clearableInputHtml, translateAuthError } from './format.js';
 import { renderNotice } from './notices.js';
-import { loadEntries, loadFeatureAccess, loadHabits, loadSections, loadUserSettings } from './data.js';
+import { loadEntries, loadHabits, loadSections, loadUserSettings } from './data.js';
 import { fetchEncryptionRow, maybeShowSpareKey, setupEncryption, unlockErrorText, unwrapDekWithRecoveryKey } from './keys.js';
-import { isIOSDevice, isMobileDevice, isStandaloneDisplay } from './device.js';
 import { SIGNUP_MIN_FILL_MS } from './account.js';
-import { whyBox } from './tutorial.js';
-import { announce, icon, iconSvg, render } from './main-view.js';
 import { completeAuthFlow } from './session.js';
+import { announce, app, esc, icon, iconSvg } from './html.js';
+import { isIOSDevice, isMobileDevice, isStandaloneDisplay } from './platform.js';
+import { loadFeatureAccess } from './feature-access.js';
+import { saveFieldNamesForPush } from './push-device.js';
+import { requestRender } from './render-request.js';
+import { getOnbMode, isGuided, isOnbInProgress, whyBox } from './onboarding-state.js';
 
 // --- Rendering: Auth -------------------------------------------------------
 // Hilfe, falls die Bestätigungsmail nicht ankommt: sie landet bei manchen Anbietern im
@@ -33,7 +34,7 @@ function renderConfirmEmailHelp() {
 }
 export async function resendConfirmEmail() {
   state.confirmResend = 'sending';
-  render();
+  requestRender();
   const { error } = await supabase.auth.resend({
     type: 'signup',
     email: state.confirmEmailFor,
@@ -45,36 +46,12 @@ export async function resendConfirmEmail() {
     const wait = /after (\d+) seconds?/.exec(error.message);
     state.confirmResend = { error: wait ? tPlain('auth.confirmHelp.wait', { seconds: wait[1] }) : t('auth.confirmHelp.failed') };
   }
-  render();
+  requestRender();
   // Bewusst nicht deaktiviert, solange gesendet wird (ein doppelter Klick wird oben
   // abgefangen) - ein deaktivierter Button verlöre den Tastatur-Fokus.
   announce(state.confirmResend === 'sent' ? t('auth.confirmHelp.resent') : state.confirmResend.error);
 }
 
-// --- Onboarding-Gerüst (seit 2026-10-01) ------------------------------------------
-// Einstiegsfrage "Wie möchtest du starten?": Schritt für Schritt (mehr Erklärung offen)
-// oder Kurz und knapp. EIN Ablauf für beide - Faustregel: klarer formulieren gilt für
-// alle, mehr erklären bekommt nur, wer Schritt für Schritt gewählt hat (aufklappbare
-// Erklärungen sind dann von Anfang an offen, siehe whyBox). Gemerkt nur auf dem Gerät.
-// iPhone: Safari und die installierte App teilen keinen Speicher - die frisch installierte
-// App fragt deshalb noch einmal (authMode 'installed').
-function getOnbMode() {
-  try { return localStorage.getItem('onboardingMode'); } catch { return null; } // 'guided' | 'short' | null
-}
-export function setOnbMode(mode) {
-  try { localStorage.setItem('onboardingMode', mode); } catch { /* dann eben nur bis zum Neuladen */ }
-  runtime.onbModeThisVisit = mode;
-}
-export function isGuided() { return (getOnbMode() || runtime.onbModeThisVisit) === 'guided'; }
-// Läuft gerade das Einrichten eines neuen Kontos (von "Ich bin neu hier" bis zum gesicherten
-// Ersatzschlüssel)? Steuert die Fortschrittsleiste auf den Seiten davor und danach.
-export function isOnbInProgress() {
-  try { return localStorage.getItem('onboardingInProgress') === 'true'; } catch { return runtime.onbInProgressThisVisit; }
-}
-export function setOnbInProgress(on) {
-  runtime.onbInProgressThisVisit = on;
-  try { if (on) localStorage.setItem('onboardingInProgress', 'true'); else localStorage.removeItem('onboardingInProgress'); } catch { /* s.o. */ }
-}
 // Die Etappen des Einrichtens. "Aufs Handy holen" zählt nur mit, wenn der Schritt auf
 // diesem Gerät auch kommt (bzw. schon geschafft ist): Handy, und entweder schon installiert
 // oder die Installations-Seite wurde hier nicht früher schon weggeklickt. Festgelegt bei der
@@ -115,12 +92,6 @@ export function onbProgress(stage, part = null) {
   `;
 }
 
-export function signedInHereBefore() {
-  try { return localStorage.getItem('signedInHere') === 'true'; } catch { return false; }
-}
-export function rememberSignedInHere() {
-  try { localStorage.setItem('signedInHere', 'true'); } catch { /* dann eben nicht */ }
-}
 // Startseite vor dem Anmelde-Formular: zwei Knöpfe, die die Lage der Person beschreiben
 // statt des Fachbegriffs - ein "Anmelden" klingt für Neulinge nach "ich bin neu, also melde
 // ich mich an". Wer sich auf dem Gerät schon einmal angemeldet hat, startet direkt beim
@@ -376,9 +347,9 @@ export function renderAuth() {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + window.location.pathname,
       });
-      if (error) { state.authError = translateAuthError(error.message); render(); return; }
+      if (error) { state.authError = translateAuthError(error.message); requestRender(); return; }
       state.notice = { type: 'ok', text: t('auth.resetLinkSent') };
-      render();
+      requestRender();
       return;
     }
     const password = document.getElementById('password').value;
@@ -395,7 +366,7 @@ export function renderAuth() {
           // der Filter durch einen Bot leicht anpassen ("Website"-Feld leer lassen,
           // langsamer abschicken).
           state.authError = t('auth.signupFailedGeneric');
-          render();
+          requestRender();
           return;
         }
         const { data, error } = await supabase.auth.signUp({
@@ -404,12 +375,12 @@ export function renderAuth() {
           // (Supabase-Dashboard, siehe docs/i18n.md) wählt damit Deutsch oder Englisch.
           options: { emailRedirectTo: window.location.origin + window.location.pathname, data: { locale: currentLocale } },
         });
-        if (error) { state.authError = translateAuthError(error.message); render(); return; }
+        if (error) { state.authError = translateAuthError(error.message); requestRender(); return; }
         if (!data.session) {
           state.confirmEmailFor = email;
           state.confirmResend = null;
           state.authMode = 'checkMail';
-          render();
+          requestRender();
           return;
         }
         // E-Mail-Bestätigung war nicht nötig (sofortige Session) - Verschlüsselung kann
@@ -423,7 +394,7 @@ export function renderAuth() {
             state.confirmEmailFor = email;
             state.confirmResend = null;
           }
-          render();
+          requestRender();
           return;
         }
         state.confirmEmailFor = null;
@@ -435,7 +406,7 @@ export function renderAuth() {
       // übernimmt und zeigt, woran es lag.
       state.unlockError = unlockErrorText(err);
       state.loading = false;
-      render();
+      requestRender();
     } finally {
       runtime.authFlowInFlight = false;
     }
@@ -480,7 +451,7 @@ export function renderPasswordRecovery() {
     state.notice = null;
     state.recoveryBusy = true;
     runtime.authFlowInFlight = true; // siehe Kommentar bei der Deklaration weiter unten im Skript
-    render();
+    requestRender();
     try {
       const userId = state.session.user.id;
       let cleanupFailed = false;
@@ -529,16 +500,16 @@ export function renderPasswordRecovery() {
         ? { type: 'error', text: t('recovery.cleanupFailed') }
         : { type: 'ok', text: t('recovery.passwordSaved') };
       state.loading = true;
-      render();
+      requestRender();
       await Promise.all([loadEntries(), loadHabits(), loadUserSettings(), loadSections(), loadFeatureAccess()]);
       state.loading = false;
       saveFieldNamesForPush(); // siehe completeAuthFlow
-      render();
+      requestRender();
       maybeShowSpareKey();
     } catch (err) {
       state.recoveryBusy = false;
       state.authError = err.message || String(err);
-      render();
+      requestRender();
     } finally {
       runtime.authFlowInFlight = false;
     }
@@ -904,7 +875,7 @@ export function renderUnlockPrompt() {
     state.unlockBusy = true;
     state.unlockError = null;
     state.notice = null;
-    render();
+    requestRender();
     try {
       // unlockEncryption deckt beide Fälle ab: bestehende Verschlüsselung entsperren
       // (Passwort falsch -> wirft) UND, falls noch keine user_encryption-Zeile
@@ -921,7 +892,7 @@ export function renderUnlockPrompt() {
     } catch (err) {
       state.unlockBusy = false;
       state.unlockError = unlockErrorText(err);
-      render();
+      requestRender();
     } finally {
       runtime.authFlowInFlight = false;
     }
@@ -936,11 +907,11 @@ export function initAuthView() {
     runtime.deferredInstallPrompt = e;
     // Nur neu zeichnen, wenn die Installations-Seite gerade zu sehen ist - nicht mitten ins
     // Anmelde-Formular hinein.
-    if (!state.session && shouldShowInstallGate()) render();
+    if (!state.session && shouldShowInstallGate()) requestRender();
   });
   window.addEventListener('appinstalled', () => {
     runtime.deferredInstallPrompt = null;
     runtime.appJustInstalled = true;
-    if (!state.session && shouldShowInstallGate()) render();
+    if (!state.session && shouldShowInstallGate()) requestRender();
   });
 }

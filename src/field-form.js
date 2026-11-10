@@ -1,15 +1,17 @@
 import { supabase } from './config.js';
 import { encryptData } from './crypto.js';
-import { DEF_PLAINTEXT_CLEARED, MAX_REMINDER_TIMES, containerMaxSortOrder, counterReminderThresholds, emptyMultiOptions, habitFromParts, hasNumberGoal, isCounterKind, isMultiKind, isTimeKind, newHabitKey, saveFieldNamesForPush, sinceSourceCandidate, sinceUsesStages } from './fields.js';
-import { formatKey, parseDateKey, readTimeInput, weekLastIso, weekdayOrder } from './dates.js';
+import { CHOICE_STEP_CAP, DEF_PLAINTEXT_CLEARED, MAX_REMINDER_TIMES, containerMaxSortOrder, counterReminderThresholds, emptyMultiOptions, habitFromParts, habitHasData, hasNumberGoal, isCounterKind, isMultiKind, isTimeKind, newHabitKey, sinceSourceCandidate, sinceUsesStages } from './fields.js';
+import { weekLastIso, weekdayOrder } from './dates.js';
 import { currentDek, runtime, state } from './state.js';
-import { closeHabitForm, esc, habitHasData } from './navigation.js';
 import { formatNumber, t, tPlain } from './i18n.js';
-import { errorNotice, infoTip, monthName, weekdayLong } from './format.js';
+import { infoTip, monthName, weekdayLong } from './format.js';
 import { saveDay } from './save.js';
-import { habitFormReminderShown } from './fields-view.js';
-import { TUTORIAL_STEP_DONE, TUTORIAL_STEP_FIELD } from './tutorial.js';
-import { render } from './main-view.js';
+import { esc } from './html.js';
+import { errorNotice } from './errors.js';
+import { saveFieldNamesForPush } from './push-device.js';
+import { formatKey, parseDateKey, readTimeInput } from './calendar.js';
+import { requestRender } from './render-request.js';
+import { TUTORIAL_STEP_DONE, TUTORIAL_STEP_FIELD } from './onboarding-state.js';
 
 // --- Felder-Verwaltung -----------------------------------------------------
 // Bringt ein Bezeichnungs-Array auf die aktuelle Stufenzahl, ohne bereits eingetippten
@@ -216,16 +218,6 @@ function readGoalFromDom(f) {
   else if (el.dataset.goalMode === 'value') f.goal = Math.min(1, Math.max(0, goalForValue(f, v)));
   else f.goal = v;
 }
-// Stufenzahl-Obergrenzen, eine Regel für alle Darstellungen (seit 2026-09-28): jede
-// Stufe mit eigener Bedeutung muss man sehen und gezielt treffen können. Buttons (mit
-// oder ohne Bezeichnungen) und eigene Bezeichnungen beim Schieberegler deshalb höchstens
-// CHOICE_STEP_CAP - mehr Abstufungen machen Antworten eher beliebiger als genauer, und
-// schon 7 nummerierte Buttons passen auf schmalen Handys nicht mehr neben den Namen
-// (siehe .habit-row--buttons). Ein Schieberegler ohne Bezeichnungen steht für "ungefähr
-// wie viel": bis SLIDER_STEP_CAP, mehr lässt sich auf einem Handy nicht mehr einzeln
-// treffen. Bestehende Felder mit mehr Stufen bleiben unverändert nutzbar
-// (lockedChoiceBlocked).
-export const CHOICE_STEP_CAP = 7;
 export const SLIDER_STEP_CAP = 100;
 export function habitFormStepCap(f) {
   return f.displayStyle === 'buttons' || f.labelsEnabled ? CHOICE_STEP_CAP : SLIDER_STEP_CAP;
@@ -479,12 +471,12 @@ export async function handleHabitSave() {
   // Reset der Eingabe.
   syncHabitFormFromDom();
   state.habitFormSaving = true;
-  render();
+  requestRender();
   try {
     await handleHabitSaveInner();
   } finally {
     state.habitFormSaving = false;
-    render();
+    requestRender();
   }
 }
 
@@ -790,12 +782,12 @@ export async function convertHabitToCounter(defId) {
   const result = await convertToCounterRow(h);
   if (result.notice) {
     state.notice = result.notice;
-    render();
+    requestRender();
     return;
   }
   closeHabitForm();
   state.notice = { type: 'ok', text: tPlain('habitForm.convertDone', { name: h.name }) };
-  render();
+  requestRender();
 }
 // Der eigentliche Umbau (auch für Vorlagen, takeIntoTemplate): Ziel übernehmen, Erinnerungszeiten
 // leeren (Zähler erinnern über eigene Zeiten mit "unter"), leer = 0 erst ab heute.
@@ -825,4 +817,31 @@ export async function convertToCounterRow(h) {
   state.habits = state.habits.map((x) => (x.defId === h.defId ? habit : x));
   saveFieldNamesForPush();
   return { habit };
+}
+
+export function closeHabitForm() {
+  const returnToTab = state.habitForm?.returnToTab;
+  state.habitForm = null;
+  if (returnToTab && state.view === 'manage') state.view = state.previousTabView || 'today';
+  runtime.pendingScrollRestore = runtime.habitFormReturnScrollY;
+  runtime.habitFormReturnScrollY = null;
+}
+
+// Zähler mit Zeitraum Woche/Monat/Jahr erinnern nicht (kein "fehlt noch", und Zwischenziele
+// über mehrere Tage gibt es nicht).
+export function habitFormReminderShown(f) {
+  return f.kind !== 'computed' && !(f.kind === 'counter' && f.period !== 'day');
+}
+
+// Formular-Zustand "Stufen ändern": f.stepEdit = { steps, labels (null ohne Bezeichnungen),
+// preset ('spread'|'same'|'custom'), map { "<alt>": neu|null }, confirm }.
+export function stepEditKey(se) {
+  return JSON.stringify([se.steps, se.labels, se.map]);
+}
+
+// Formular-Zustand: f.typeEdit = { kind, steps, preset ('round'|'spread'|'custom', nur Skala),
+// unit, map { "<alt>": neu }, confirm }. map hält bei Zahl/Text den Text der Eingabefelder
+// (umgerechnet erst in typeEditFinalMap), bei Skala die gewählte Stufe bzw. null.
+export function typeEditKey(te) {
+  return JSON.stringify([te.kind, te.steps, te.preset, te.unit, te.map]);
 }

@@ -1,8 +1,6 @@
-import { startOfDay, startOfWeek } from './dates.js';
-import { clearFeatureAccess } from './data.js';
-import { isStandaloneDisplay } from './device.js';
-import { signedInHereBefore } from './auth-view.js';
-import { closeWhatsNew } from './about-view.js';
+import { isStandaloneDisplay } from './platform.js';
+import { clearFeatureAccess } from './feature-access.js';
+import { startOfDay, startOfWeekWith } from './calendar.js';
 
 // --- App-State ---------------------------------------------------------
 // Laufzeitwerte, die mehrere Module setzen (ES-Module können importierte Variablen nicht neu
@@ -79,7 +77,7 @@ export const state = {
   view: 'today',
   previousTabView: 'today', // Tab, zu dem "Verwalten"/"Über Logbuch" zurückspringen (siehe enterSubpage/closeTopLayer)
   currentDate: startOfDay(new Date()),
-  weekAnchor: startOfWeek(new Date()),
+  weekAnchor: startOfWeekWith(new Date(), runtime.weekStartIso),
   monthAnchor: (() => { const d = startOfDay(new Date()); d.setDate(1); return d; })(),
   yearAnchor: new Date().getFullYear(),
   // 'welcome' | 'mode' (Einstiegsfrage) | 'overview' ("So läuft's ab") | 'installed' (frisch
@@ -153,24 +151,16 @@ export function clearCurrentDek() {
   currentDekUserId = null;
 }
 
+export function signedInHereBefore() {
+  try { return localStorage.getItem('signedInHere') === 'true'; } catch { return false; }
+}
+
+export function rememberSignedInHere() {
+  try { localStorage.setItem('signedInHere', 'true'); } catch { /* dann eben nicht */ }
+}
+
 export function restoreModalFocus() {
   if (!runtime.modalTriggerSelector) return;
   document.querySelector(runtime.modalTriggerSelector)?.focus();
   runtime.modalTriggerSelector = null;
-}
-// Gemeinsamer Schließ-Weg aller Bestätigungs-Modals (Abbrechen-Button, Escape,
-// Android-Zurück) - rendert NICHT selbst, der Aufrufer muss danach render() und
-// restoreModalFocus() aufrufen (closeTopLayer läuft z.B. vor einem eigenen render()).
-export function closeModals() {
-  if (state.whatsNew) closeWhatsNew(); // Schließen = gesehen (speichert)
-  state.deleteConfirm = null;
-  if (!state.passwordChange?.busy) state.passwordChange = null;
-  state.spareKeyCheck = null;
-  if (!state.emailChange?.busy) state.emailChange = null;
-  state.tutorialSkipConfirm = false;
-  state.resetConfirm = null;
-  state.regenKeyConfirm = false;
-  state.logoutConfirm = false;
-  state.leaveFormConfirm = false;
-  runtime.pendingFormLeave = null;
 }
