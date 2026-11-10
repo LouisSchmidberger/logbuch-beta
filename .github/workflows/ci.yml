@@ -1,4 +1,4 @@
-# Automatische Prüfung bei jedem Push (Beta und live): Linter, Rechenlogik-Tests, Abgleich
+# Automatische Prüfung bei jedem Push (Beta und live): Linter, Verschlüsselung, Rechenlogik-Tests, Abgleich
 # JS <-> SQL auf einer frischen Wegwerf-Datenbank aus allen Migrationen, Typprüfung der Edge
 # Functions. Schlägt etwas fehl, zeigt GitHub den Push rot (Reiter "Actions") und schickt eine
 # Mail. Die Seite selbst wird trotzdem veröffentlicht - die CI ist das Warnsignal, nicht die Sperre.
@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - name: Linter
         run: npm run lint
+      - name: Verschlüsselung (feste Testdaten)
+        run: node dev/crypto-tests.mjs
       - name: Vorschau-Server starten
         run: |
           node dev/server.mjs &

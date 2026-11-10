@@ -70,13 +70,14 @@ Cache-Busting und `?v=` fällt weg.
 
 ## Phasen
 
-### Phase 0: Absicherung (kein App-Code)
+### Phase 0: Absicherung (erledigt 2026-11-10)
 
-1. Baseline-Bilder: `node dev/rundgang.mjs alle` für `handy`, `schmal`, `pc`, dazu
-   `--theme=dark` und `--size=xlarge`; nach `dev/screenshots/baseline/` (nicht ins Git).
-2. **Krypto-Fixtures**: mit dem heutigen Code (`encryptData` über die Vorschau) Chiffretexte mit
-   festem Test-Schlüssel und erfundenem Klartext erzeugen, als Testdaten ablegen und in
-   `dev/tests.mjs` prüfen, dass sie entschlüsselt werden. Das sichert jede spätere Phase ab.
+- Tag `vor-umbau` auf dem Stand davor.
+- Baseline-Bilder in `dev/screenshots/baseline/` (nicht im Git): `node dev/rundgang.mjs alle`
+  für `handy`, `schmal`, `pc`, dazu `--theme=dark` und `--size=xlarge`. Gehen sie verloren:
+  `git checkout vor-umbau`, neu erzeugen, zurück.
+- Feste Krypto-Testdaten `dev/fixtures/crypto.json` mit `dev/crypto-tests.mjs` (läuft in der CI).
+  Zieht der Krypto-Code nach `src/`, nur den Import-Pfad im Test anpassen.
 
 ### Phase 1: Build mit Vite und Typprüfung
 

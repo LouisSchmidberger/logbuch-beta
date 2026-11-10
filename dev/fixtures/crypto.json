@@ -1,0 +1,82 @@
+{
+  "hinweis": "Testdaten für dev/crypto-tests.mjs. Erzeugt mit dem Code vom Tag vor-umbau (2026-11-10). Nie neu erzeugen: sie halten fest, dass der Code alte Daten weiter lesen kann. Nur erfundene Daten.",
+  "dekHex": "00112233445566778899aabbccddeeff0123456789abcdeffedcba9876543210",
+  "password": "fixture-passwort-ÄÖÜ-123",
+  "recoveryKeyHex": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "encryptionRow": {
+    "salt": "CwwiFm/KnMZhHGVRZdpNGg==",
+    "kdf_iterations": 1000,
+    "wrapped_dek": "fY8Bkz9jghElyjZjxhKT+isjNssUOniVMCwhFT79jPAQSkKgPFKSKC6Unhjqs4wb",
+    "wrap_iv": "0OgkM8mJDLVaUtQF",
+    "wrapped_dek_recovery": "jskP/3BOK2r703dfGoJ1nFzpZTa1b7LrrohOimXY0xNnoPYVaTjjS8+7EcuRYA6V",
+    "recovery_wrap_iv": "OG0/FxjMIKrMArL+"
+  },
+  "entries": [
+    {
+      "plain": {},
+      "enc": {
+        "iv": "BBR151fs8eK/e/Db",
+        "ciphertext": "A5tYWJ8ZexeB8HDz09csptVXOexdQskp3obM0ZEzmBzp7nsxHbOGl+jIGimGyCJ8bSHRIY4WKICsOZZAaHNPQe4yfmrVYuX901/a/PnAKfmVHqpsjfnTjLaWEaPP8SHZ0Q0usQkJiDgym5w6ObChLEF2F2KP7U9qUQ2JsyYLqMTBS1rfPpDvuEGC85vr3UNHBqSvtV1Lsyoq6SPpOwSdFB/W622Vv0BOAkPsOSnQ9+eyRhA4nNrJv5X9OppusNm9L7h8HtmHJvN81Ur9EnKbLkrjOz/EM6O1tbPD4xI5xgEWObKJx1M6HbzU2ybv7OMy4+8P49PDrB7Xoka2YxyiSmdRqfoE4o4MgvM3ZsyLo3Q="
+      }
+    },
+    {
+      "plain": {
+        "h1": 3,
+        "h2": 12.5,
+        "h3": "kurzer Text"
+      },
+      "enc": {
+        "iv": "jKTMlsoAzUEUzGDn",
+        "ciphertext": "xT3oz4MlQoIPWHv8OI18SjMsjB/B5VOD/yTC4pOMuhcqBdZJDIv76cE5WMp0R8B7E60aYp5aDfy2JTi/IIiMKqMnLtAli3OXEO5CYa4IfnZR0Gr5rEUN0ahv6MXr1VJxt9oHSjdjXsZj3GJNUr4NRGnIoXwIf0KxUvPCBUk4UKS4SAw2C6DV3oqDE0G7vjHIrQxOFVbT5S3hJAuKuHJ2doMdc1mbO9XHkD8SzdxIjqzsu4fYw8z2p94Q07I2IqxMQhuRQYGMUXmrgaYJUA9YimDbAVrLX4CFv4k49QRkn9AeOt8ukYPv0onFhzC3DFs1l1G0e9FnG+8QOIoHAbDOn9abzW9yXifSmIR1l/l14mw="
+      }
+    },
+    {
+      "plain": {
+        "h1": 2,
+        "_notes": [
+          {
+            "id": "n1",
+            "t": "Notiz mit Umlauten äöüß und Emoji 🌧️",
+            "at": "2026-11-10T08:15:00Z"
+          }
+        ],
+        "_prev": {
+          "h1": {
+            "kind": "scale",
+            "v": 4
+          }
+        }
+      },
+      "enc": {
+        "iv": "LtW84azZKC0lU/id",
+        "ciphertext": "TaV88IFylngg7VsI23lPDC1OWsPqWl2zAPX5sWX4kLGCsDqFb7L7B7y19j9gVCnwxgxuRlH0tEQDGUhi8mDAZyQiw0Q8pTemMyTLzr9Pm8lYHgCH6i+cbVva5qHF6zQJnle3mtB8XZA5b5lWW/yi5aniK+n4kvVBmVRc+n/0dcAbEDCCj5t2XlfFyVlQkJrciniPZkHnQpIqBHe+oppWxLDw1zpVQiGt87/yfcvY6DBMczUypR+ee4ueM8fkBD3nrLLZOCwqmgLZffcpEU4wewOYD2foFGULJ3qJY/N3tSWY3sYrzfrdg/THHfLuTB0amh0ppiD3kIPn4KuNRpKeRymC9SPpJNxQqvvWZIv3qYM="
+      }
+    },
+    {
+      "plain": {
+        "lang": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "zahl": 0,
+        "leer": null,
+        "liste": [
+          1,
+          2,
+          3
+        ]
+      },
+      "enc": {
+        "iv": "+yRyO/XZbPvwWVWe",
+        "ciphertext": "We8u6UeQPFRrS+bprejZYqRxjnFd270wnH5m0ZcXWNJAA1a/GoUj0T7TX9a5F1i+GuJK8nElCZIo3E6HoePLHvmYB+vYaHxhEGY98avlVgPIu95jPBNhNKwIM483NqfQK1DAh2r2BdnYqo2/foGyfNV2bmYnB2XvDWemzW5cQF8E+ph6ZI1LVFbPLSDet8I2cEb9bS1/bR80ZUUWrrUmS85C7BmpKFcideuiq6C0zwprrur4d1/xmDvTAyCPxFESmCQrQf9aWiHjfBoQDoBnKqMFbbj2vVeBVmpbWOoTxLkPggaYHahLfpCcaPix3yGug5V+Pbp2pBXe/w+BQJReLbW8OkgDhUTnpPHtEZvs+rbrqWXtsr8Fz1NzhBIiZwjmf5r7id+QVZM3B6m2yizGqQWreiR5Or0TQIklgDnH+yfxppDb/y2M4ictTBq2ROaqy2V6UbZkcDN/h3U8HKFKGs4XpdxFa6Q/VtLRbdLAhXE77N9+JMKL9ASmz9lA1LE32i9i9oynutHX5bpXkFJjv1JWuyLNmmPtsdIRQHb8LkIjfRCny84qvQShvdt94p1BWuou0nHgJtTLZUDFNBTR9ObVweWnDembjl0sV7u8H42v4uQwwDu3uk/Pq+uCnuqLTy64W59iqBs/k8KBX9SOS1ItbiPsitRjJ7m2az7ozpa22FDsxtouPPjDRDYXmOv64qURIY3GnDpnos+8qQzDeZ82XMxd5A7ThedYZccrgfA0CM3NkUBtL1vUPl069GbkNvwzeImAW7anThnKgKW0sYCm0qjjaippjwywcYGjCJS6Vu6TX9gqGW3HsTIkkTF5lEG+4ypbAR0aelHiFGuODzjvbnDRZIBjMqih0LuSQmdvswVo/0hBRbL/ItPsDkd0+q1nmd94XEqmlmr5VJgyS71duV49f0HR6AkTXHXlS/FSq8gf4dFwFoxQQVzR8a15gg+dEAFra3ZPAwW8riPtxa4zyZvW5a1gYilHCpK8SAHNiHJc+XOt8HiiMF1SNs9b3TCgh2aH0QjTWf6bbskaMg=="
+      }
+    }
+  ],
+  "legacyUnpadded": {
+    "plain": {
+      "h1": 1,
+      "alt": "vor dem Auffüllen"
+    },
+    "enc": {
+      "iv": "15/eqbJexfzpOCCy",
+      "ciphertext": "wMxhIMjBmfX1tkOt/ePzhvXnxR6VyAbHdUAwqV9keLRGPrdEYwLegaTViwBuJB7ITxN1"
+    }
+  }
+}

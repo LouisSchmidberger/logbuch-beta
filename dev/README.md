@@ -59,6 +59,12 @@ Fehlern. Sie laufen im echten App-Code: `internals` im Vorschau-Haken (`dev/serv
 liefert jeden Export der Module unter `js/` - eine neue getestete Funktion muss in ihrem Modul
 exportiert sein.
 
+**Verschlüsselung** (`node dev/crypto-tests.mjs`, ohne Server): entschlüsselt die festen
+Testdaten in `dev/fixtures/crypto.json` (Schlüssel mit Passwort und Ersatzschlüssel entpacken,
+gespeicherte Einträge, altes Format ohne Auffüllen) und prüft, dass neu Verschlüsseltes dieselbe
+Form hat. Die Testdaten nie neu erzeugen oder anpassen: sie stehen für schon gespeicherte echte
+Einträge. Schlägt der Test fehl, ist der Code falsch.
+
 **Abgleich JS <-> SQL** (`node dev/sync-tests.mjs`): rechnet Regeln, die es in der App und in
 der Datenbank gibt (Zeitplan, Zeitraum-Start), für Hunderte Fälle auf beiden Seiten und meldet
 jeden Unterschied. Braucht den Vorschau-Server und eine lokale Datenbank aus allen Migrationen
