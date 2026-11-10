@@ -1,6 +1,7 @@
 // Automatische Tests der Rechenlogik (siehe README.md). Laufen im gebauten App-Code in der
 // Vorschau: der Vorschau-Haken reicht alle Exporte der Module durch (internals, siehe
-// vite.config.js) - getestet wird derselbe gebündelte Code, der live läuft.
+// vite.config.js) - getestet wird derselbe Quellcode in derselben Bündelung wie live, nur
+// unverkleinert (den verkleinerten Build prüft dev/dist-check.mjs).
 //
 //   node dev/tests.mjs          (Vorschau-Server muss laufen: node dev/server.mjs)
 //

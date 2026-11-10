@@ -1,4 +1,4 @@
-Lizenzen der in vendor/supabase-js-2.117.2.js gebündelten Pakete
+Lizenzen der im App-Bündel (assets/logbuch-*.js) enthaltenen Pakete von @supabase/supabase-js 2.117.2
 
 ==== @supabase/supabase-js ====
 MIT License

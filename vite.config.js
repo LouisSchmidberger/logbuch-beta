@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+const BROWSERS = ['es2020', 'chrome87', 'edge88', 'firefox78', 'safari14'];
 
 function previewHook() {
   const mods = readdirSync(`${root}src`).filter((f) => f.endsWith('.js') && f !== 'main.js').sort();
@@ -44,6 +45,10 @@ export default defineConfig(({ mode }) => {
       outDir: preview ? 'dev/.preview' : 'dist',
       emptyOutDir: true,
       rolldownOptions: { input: 'logbuch.html' },
+      // Ältere Browser-Ziele als Vites Standard (Safari 16.4): vor dem Build lief der Code
+      // unverändert, auch auf älteren iPhones; so bleiben z.B. -webkit-appearance-Regeln erhalten.
+      target: BROWSERS,
+      cssTarget: BROWSERS,
       // Vorschau unverkleinert: Fehlermeldungen in den Tests zeigen lesbare Namen.
       minify: !preview,
     },

@@ -1,7 +1,8 @@
 // Lokaler Vorschau-Server (siehe dev/README.md): baut die App mit Vite im Modus "preview"
 // (vite.config.js) nach dev/.preview/ und liefert sie aus - also derselbe gebündelte Code wie
 // live, nur mit nachgebautem Supabase (dev/mock-supabase.js) und angehängtem Vorschau-Haken
-// (dev/preview-hook.js). Änderungen unter src/ baut er im Hintergrund neu (Seite neu laden).
+// (dev/preview-hook.js), unverkleinert. Änderungen unter src/ und an den Vorschau-Dateien baut
+// er im Hintergrund neu (Seite neu laden).
 // Pfade unter /dev/ (Postfach) kommen direkt aus dem Repo. Auf GitHub Pages gibt es diesen
 // Server nicht, dort lässt sich die Vorschau also auch nicht einschalten.
 //

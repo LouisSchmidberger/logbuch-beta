@@ -58,9 +58,16 @@ gegenseitig im Kreis; das läuft nur, weil beim Laden nichts außer Deklaratione
 
 - Vor Phase 1: `git tag vor-umbau` auf `main`.
 - Ein Merge pro Phase; `main` bleibt immer deploybar, kein Force-Push auf `main`.
-- Beta-Test eines Umbau-Branches nur nach Rücksprache (Beta = Alltagskonto des Nutzers,
-  Datenbank mit Live geteilt): `git push beta umbau/phase-…:main`, zurück mit
-  `git push --force-with-lease beta main:main`.
+- Beta-Test eines Umbau-Branches (Nutzer-Entscheidung 2026-11-10: nach grünen lokalen Prüfungen
+  ohne Rückfrage; Beta = Alltagskonto, Datenbank mit Live geteilt): `git push beta
+  umbau/phase-…:main`, zurück mit `git push --force-with-lease beta main:main`.
+- **Rückweg seit Phase 1**: veröffentlicht wird nur noch über den CI-Job `deploy`. Ein Stand
+  ohne diesen Job (z.B. `vor-umbau`) veröffentlicht nichts, die Seite bliebe beim neuen Stand.
+  Deshalb zurück immer vorwärts: `git revert` der Umbau-Commits, die `ci.yml` mit `deploy`
+  bleibt. Notfalls Pages-Quelle wieder auf "Deploy from a branch" (main, Stamm) und den alten
+  Stand pushen.
+- Der Übergangs-Teil in `ci.yml` ("Stand vor dem Build … behalten") ist nach dem ersten
+  Live-Deploy mit Vite überflüssig; in Phase 2 entfernen.
 - Live wie in `CLAUDE.md` "Deployment": gesammelt, auf Okay des Nutzers.
 
 ## Phasen
@@ -89,6 +96,8 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
 - `npm run typecheck` (`checkJs`, nicht streng) läuft in der CI nur als Hinweis: 257 Meldungen
   zum Start, fast alle "Eigenschaft unbekannt" (`event.target.dataset` u. ä.), kein echter
   Fehler darunter gefunden. Abbau in Phase 3.
+- Browser-Ziel wie vor dem Build (Safari 14, Chrome 87 usw., `vite.config.js`), damit CSS und JS
+  auf älteren Geräten gleich bleiben. Unabhängiges Review vor dem Merge, Befunde behoben.
 - Bildvergleich: alle Rundgang-Bilder gleich der Baseline außer dem zufälligen Ersatzschlüssel.
   Die Beispieldaten der Vorschau sind seitdem unabhängig von der Uhrzeit des Laufs.
 

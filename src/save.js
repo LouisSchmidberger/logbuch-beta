@@ -120,7 +120,7 @@ export function openNoteEditor(key) {
 // des visuellen Viewports (Tastatur geht auf), solange die Textarea den Fokus hat.
 // Oben zusätzlich der angepinnte Header (.sticky-top), unter dem nichts landen soll.
 // Unterkante des angepinnten Kopfs (Header + Tab-Leiste) - 0, wenn er gerade nicht
-// angepinnt ist (wenig Höhe, siehe @media max-height in logbuch.html): dann verdeckt er
+// angepinnt ist (wenig Höhe, siehe @media max-height in logbuch.css): dann verdeckt er
 // nichts, und seine Position beim Scrollen spielt keine Rolle.
 export function stickyHeaderBottom() {
   const el = document.querySelector('.sticky-top');

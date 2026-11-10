@@ -20,8 +20,12 @@ alle.
 ## Deployment-Schritte
 
 1. App: `git push` genügt. Die CI (`.github/workflows/ci.yml`) prüft alles, baut mit Vite und
-   veröffentlicht `dist/` über den Job `deploy` (Pages-Quelle in beiden Repos: "GitHub Actions").
-   Ist ein Schritt rot, bleibt der alte Stand online; den Fehler vor allem anderen beheben.
+   veröffentlicht `dist/` über den Job `deploy`. Ist ein Schritt rot, bleibt der alte Stand
+   online; den Fehler vor allem anderen beheben. Ohne neuen Commit: Actions → CI → "Run
+   workflow" auf `main`. Voraussetzung: Pages-Quelle des Repos ist "GitHub Actions" (sonst
+   veröffentlicht GitHub den ungebauten Stamm, und die Seite lädt nicht); neues Repo zuerst
+   umstellen (`gh api -X PUT repos/<owner>/<repo>/pages -f build_type=workflow`), dann pushen.
+   Zurück zu einem alten Stand: `git revert`, nicht den alten Commit pushen (docs/umbau.md).
 2. `supabase functions deploy <name>` (Code unter `supabase/functions/<name>/index.ts`). Ob eine
    Function ein Supabase-Login verlangt (`verify_jwt`), steht je Function in `supabase/config.toml`;
    der Deploy liest es von dort. Paket-Versionen in den Functions immer fest (`npm:paket@x.y.z`).

@@ -6,8 +6,9 @@ gehen: auch eingeloggte Seiten und das Onboarding. Das echte Gerät bleibt die l
 ## Wie es funktioniert
 
 `server.mjs` baut die App mit Vite im Modus "preview" (`vite.config.js`) nach `dev/.preview/`
-und liefert diesen Stand aus: derselbe gebündelte Code wie live, mit zwei Unterschieden, die es
-nur in diesem Build gibt (Änderungen unter `src/` baut er im Hintergrund neu, dann Seite neu laden):
+und liefert diesen Stand aus: derselbe Quellcode in derselben Bündelung wie live, nur
+unverkleinert und mit zwei Unterschieden, die es nur in diesem Build gibt (Änderungen unter `src/`
+und an den Vorschau-Dateien baut er im Hintergrund neu, dann Seite neu laden):
 
 - `@supabase/supabase-js` → `mock-supabase.js`: nachgebautes Supabase (Anmeldung,
   Tabellen mit Standardwerten/Schlüsseln/"nur eigene Zeilen", die zwei Edge Functions),
@@ -16,6 +17,9 @@ nur in diesem Build gibt (Änderungen unter `src/` baut er im Hintergrund neu, d
 - An `src/main.js` hängen ein paar Zeilen, die alle Module unter `src/` laden und ihre
   Exporte an `preview-hook.js` reichen (`window.__logbuchPreview`). Darüber legen die Beispieldaten
   denselben Weg zurück wie echte Eingaben, mit gleicher Verschlüsselung und gleichem Format.
+
+Den verkleinerten Produktions-Build (`dist/`, echtes supabase-js) prüft `node dev/dist-check.mjs`
+nach `npm run build` einmal im Browser unter `/logbuch-beta/` (auch in der CI).
 
 Diese Trennung ist eine bewusste Entscheidung: Testcode gehört nicht in die Live-App. Der
 veröffentlichte Build enthält nichts davon (die CI prüft, dass `__logbuchPreview` in `dist/`
@@ -71,7 +75,7 @@ jeden Unterschied. Braucht den Vorschau-Server und eine lokale Datenbank aus all
 (`npx supabase db start`, braucht Docker Desktop). Neue doppelte Regel -> dort Fälle ergänzen.
 
 **CI** (`.github/workflows/ci.yml`): bei jedem Push auf GitHub laufen Linter, Krypto-Test,
-Build, Typprüfung (vorerst nur als Hinweis), Tests, Rundgänge, eine Wegwerf-Datenbank aus allen
+Build mit Rauchtest im Browser, Typprüfung (vorerst nur als Hinweis), Tests, Rundgänge, eine Wegwerf-Datenbank aus allen
 Migrationen, der Abgleich und die Typprüfung der Edge Functions; nur wenn alles grün ist,
 veröffentlicht der Job `deploy` (docs/freigabe.md). Ergebnis im Reiter "Actions" des Repos;
 ein Fehler kommt zusätzlich per Mail. Lokal: `npm run lint` (auch im pre-commit-Hook),

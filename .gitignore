@@ -2,5 +2,7 @@
 node_modules/
 supabase/.temp/
 .claude/settings.local.json
+# Zugang des Hubs zu ops-stats: liegt im Hub als Secret, eine lokale Kopie nie ins Repo
+.ops-stats-token
 # Build-Ergebnis (npm run build), veröffentlicht nur die CI
 dist/
