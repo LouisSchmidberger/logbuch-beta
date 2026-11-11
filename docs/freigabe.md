@@ -22,8 +22,8 @@ alle.
 1. App: `git push` genügt. Die CI (`.github/workflows/ci.yml`) prüft in gleichzeitigen Jobs,
    baut mit Vite und veröffentlicht `dist/` (`deploy.yml`). **Live** erst, wenn alles grün ist;
    sonst bleibt der alte Stand online. **Beta** schon nach den schnellen Prüfungen (Linter,
-   Verschlüsselung, Rechenlogik, Build, Edge Functions; ca. 2 statt 5 Minuten, Nutzer-Entscheidung
-   2026-11-11): Rundgänge und Abgleich JS ↔ SQL laufen weiter, werden sie rot, ist der Stand
+   Verschlüsselung, Rechenlogik, Build, Edge Functions; ca. 1 statt 5 Minuten, Nutzer-Entscheidung
+   2026-11-11): Rauchtest des Builds, Rundgänge und Abgleich JS ↔ SQL laufen weiter, werden sie rot, ist der Stand
    schon auf der Beta. Rot immer vor allem anderen beheben. Ohne neuen Commit: Actions → CI → "Run
    workflow" auf `main`. Voraussetzung: Pages-Quelle des Repos ist "GitHub Actions" (sonst
    veröffentlicht GitHub den ungebauten Stamm, und die Seite lädt nicht); neues Repo zuerst

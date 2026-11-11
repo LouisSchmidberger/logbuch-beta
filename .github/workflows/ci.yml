@@ -1,10 +1,10 @@
 # Bei jedem Push (Beta und live), in gleichzeitigen Jobs: schnelle Prüfungen (Linter,
-# Verschlüsselung, Rechenlogik, Build mit Rauchtest, Typprüfung), Rundgänge im Browser, Abgleich
+# Verschlüsselung, Rechenlogik, Build, Typprüfung), Rauchtest und Rundgänge im Browser, Abgleich
 # JS <-> SQL auf einer frischen Wegwerf-Datenbank aus allen Migrationen, Typprüfung der Edge
 # Functions. Veröffentlicht wird nur bei Push auf main (deploy.yml):
 #   - Beta (logbuch-beta): sobald die schnellen Prüfungen und die Edge Functions grün sind, damit
-#     ein Stand nach ~2 Minuten zum Testen bereitsteht (Nutzer-Entscheidung 2026-11-11). Werden
-#     Rundgänge oder Abgleich danach rot, ist der Stand schon auf der Beta: sofort beheben.
+#     ein Stand nach ~1 Minute zum Testen bereitsteht (Nutzer-Entscheidung 2026-11-11). Werden
+#     Rauchtest, Rundgänge oder Abgleich danach rot, ist der Stand schon auf der Beta: sofort beheben.
 #   - live (logbuch): erst wenn ALLES grün ist. Rot = nichts wird veröffentlicht.
 # Dieselbe Datei läuft in beiden Repos; das Repo bestimmt den Weg.
 # Actions mit fester Commit-Kennung statt Versions-Tag: ein Tag lässt sich nachträglich
@@ -41,15 +41,12 @@ jobs:
         run: npm run build
       - name: Kein Vorschau-Code im Build
         run: test -f dist/logbuch.html && ! grep -rlE 'logbuchPreview|mock-supabase|previewAdmin' dist/
-      # Der veröffentlichte (verkleinerte) Stand einmal im Browser: Startseite unter /logbuch-beta/.
-      - name: Produktions-Build im Browser (Rauchtest)
-        run: node dev/dist-check.mjs
       # Typprüfung der App: scheitert erst, wenn es mehr Meldungen als die Altlasten werden (docs/umbau.md).
       - name: Typprüfung (nicht mehr Meldungen als bisher)
         run: node dev/typecheck-count.mjs
 
   walkthroughs:
-    name: Rundgänge
+    name: Rauchtest, Rundgänge
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -61,6 +58,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Der veröffentlichte (verkleinerte) Stand einmal im Browser: Startseite unter /logbuch-beta/.
+      # Hier statt bei den schnellen Prüfungen: dauert ~50 s (Browserstart), die Beta wartet nicht darauf.
+      - name: Produktions-Build im Browser (Rauchtest)
+        run: npm run build && node dev/dist-check.mjs
       - name: Vorschau-Server starten
         run: |
           node dev/server.mjs &
