@@ -2,7 +2,6 @@ import { CHOICE_STEP_CAP, MAX_REMINDER_TIMES, MULTI_MAX_OPTIONS, computedMemberH
 import { isNeutralScale, scheduleSummary, weekdayOrder } from '../domain/dates.js';
 import { state } from '../state/state.js';
 import { infoTip, mondayFirstWeekdayShortNames, weekdayLong } from '../lib/format.js';
-import { stepperInput } from '../data/notices.js';
 import { canConvertToCounter, goalControlHtml, habitFormReminderShown, habitFormStepCap, habitFormStepCount, habitFormStepValue, habitFormSummable, isOptionalAllowed, lockedChoiceBlocked, numberGoalAllowed, numberGoalField, periodReminderControl, resizeLabels } from '../features/field-form.js';
 import { fieldMoveStep, stepEditHtml, typeEditHtml } from '../features/type-change.js';
 import { renderSectionForm } from '../features/section-form.js';
@@ -14,6 +13,7 @@ import { reminderTimeInputHtml } from '../features/reminder-input.js';
 import { PERIODS, isPeriodField, minutesToTimeStr } from '../lib/calendar.js';
 import { whyBox } from '../state/onboarding-state.js';
 import { t, tPlain } from '../lib/i18n.js';
+import { stepperInput } from '../lib/stepper.js';
 
 // --- Rendering: Felder-Verwaltung -------------------------------------------
 // Titel des Formulars - in der Verwaltung steht er im Seitenkopf (titleInHeader),

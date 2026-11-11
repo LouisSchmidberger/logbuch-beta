@@ -3,7 +3,6 @@ import { PBKDF2_ITERATIONS, bufToBase64, cacheDek, deriveKek, formatRecoveryKey,
 import { runtime, setCurrentDek, signedInHereBefore, state } from '../state/state.js';
 import { TEXT_SIZES, getTextSize, getThemeOverride } from '../lib/theme.js';
 import { AUTH_MIN_PASSWORD_LENGTH, clearableInputHtml, translateAuthError } from '../lib/format.js';
-import { renderNotice } from '../data/notices.js';
 import { loadEntries, loadHabits, loadSections, loadUserSettings } from '../data/data.js';
 import { fetchEncryptionRow, maybeShowSpareKey, setupEncryption, unlockErrorText, unwrapDekWithRecoveryKey } from '../data/keys.js';
 import { SIGNUP_MIN_FILL_MS } from '../data/account.js';
@@ -15,6 +14,7 @@ import { saveFieldNamesForPush } from '../data/push-device.js';
 import { requestRender } from '../lib/render-request.js';
 import { getOnbMode, isGuided, isOnbInProgress, whyBox } from '../state/onboarding-state.js';
 import { currentLocale, t, tPlain } from '../lib/i18n.js';
+import { renderNotice } from './notices.js';
 
 // --- Rendering: Auth -------------------------------------------------------
 // Hilfe, falls die Bestätigungsmail nicht ankommt: sie landet bei manchen Anbietern im

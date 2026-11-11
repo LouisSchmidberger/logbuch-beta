@@ -1,6 +1,7 @@
 import { runtime, state } from '../state/state.js';
 import { announce, announceAlert, esc } from '../lib/html.js';
 import { t } from '../lib/i18n.js';
+import { stepInput } from '../lib/stepper.js';
 
 // --- Meldungen als schwebender Kasten unten (seit 2026-10-01) -------------------
 // Vorher standen Meldungen oben unter dem Kopf - wer weiter unten etwas tat (z.B. im
@@ -50,31 +51,6 @@ export function renderNotice() {
     : `<div class="notice notice--ok" role="status" aria-live="polite">${esc(state.notice.text)}</div>`;
 }
 
-// Zahlen-Eingabe mit +/- Buttons daneben, für kurze/eingeschränkte Wertebereiche
-// (z.B. Anzahl Stufen) — spart das Eintippen. Ändert direkt das Input-Element und
-// feuert ein 'change'-Event (siehe stepper-inc/-dec im Klick-Handler), damit ein
-// evtl. daran hängender bestehender Change-Listener (z.B. für die Label-Stufenzahl)
-// weiterhin greift.
-export function stepperInput(id, value, min, max, disabled, extraAttrs = '') {
-  return `
-    <div class="stepper-row">
-      <button type="button" class="stepper-btn" data-action="stepper-dec" data-target="${id}" ${disabled ? 'disabled' : ''} aria-label="${esc(t('ariaLabel.decrease'))}">−</button>
-      <input type="number" id="${id}" min="${min}" max="${max}" value="${value}" ${extraAttrs} ${disabled ? 'disabled' : ''} />
-      <button type="button" class="stepper-btn" data-action="stepper-inc" data-target="${id}" ${disabled ? 'disabled' : ''} aria-label="${esc(t('ariaLabel.increase'))}">+</button>
-    </div>
-  `;
-}
-
-// Einen Schritt am Zahlenfeld eines Steppers, begrenzt auf dessen min/max. Rückgabe: ob
-// sich der Wert geändert hat.
-export function stepInput(target, delta) {
-  const min = target.min !== '' ? Number(target.min) : -Infinity;
-  const max = target.max !== '' ? Number(target.max) : Infinity;
-  const before = Math.round(Number(target.value));
-  const n = Math.max(min, Math.min(max, before + delta));
-  target.value = n;
-  return n !== before;
-}
 // Gedrückthalten zählt weiter (seit 2026-09-29) - bei z.B. 100 Stufen sonst 99 einzelne
 // Tipps. Nach einer kurzen Wartezeit (ein normaler Tipp bleibt ein Schritt) immer
 // schneller. Währenddessen ändert sich nur die Zahl im Feld; gespeichert/neu gerendert

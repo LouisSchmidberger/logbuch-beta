@@ -67,7 +67,7 @@ ohne Kreis-Imports geordnet (docs/module.md).
   bleibt. Notfalls Pages-Quelle wieder auf "Deploy from a branch" (main, Stamm) und den alten
   Stand pushen.
 - Der Übergangs-Teil in `ci.yml` ("Stand vor dem Build … behalten") ist nach dem ersten
-  Live-Deploy mit Vite überflüssig; in Phase 2 entfernen.
+  Live-Deploy mit Vite überflüssig; danach entfernen.
 - Live wie in `CLAUDE.md` "Deployment": gesammelt, auf Okay des Nutzers.
 
 ## Phasen
@@ -93,9 +93,10 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
   Vorschau-Code enthält; `dev/` wird nicht mehr veröffentlicht.
 - Veröffentlichen über den CI-Job `deploy`, nur wenn alles grün ist; Skript und CSS des vorigen
   Stands bleiben eine Runde online (docs/freigabe.md).
-- `npm run typecheck` (`checkJs`, nicht streng) läuft in der CI nur als Hinweis: 257 Meldungen
+- `npm run typecheck` (`checkJs`, nicht streng): 257 Meldungen
   zum Start, fast alle "Eigenschaft unbekannt" (`event.target.dataset` u. ä.), kein echter
-  Fehler darunter gefunden. Abbau in Phase 3.
+  Fehler darunter gefunden. Die CI scheitert erst bei mehr als diesen
+  (`dev/typecheck-count.mjs`, Grenze beim Abbau senken). Abbau in Phase 3.
 - Browser-Ziel wie vor dem Build (Safari 14, Chrome 87 usw., `vite.config.js`), damit CSS und JS
   auf älteren Geräten gleich bleiben. Unabhängiges Review vor dem Merge, Befunde behoben.
 - Bildvergleich: alle Rundgang-Bilder gleich der Baseline außer dem zufälligen Ersatzschlüssel.

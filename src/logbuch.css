@@ -265,7 +265,7 @@ body {
 .settings-section { margin: 0; }
 /* Symbol vor Menüpunkten und Abschnitts-Überschriften (wie im Onboarding). */
 .item-icon { display: inline-block; width: 1.6em; flex-shrink: 0; font-style: normal; }
-/* Eigene Symbole (ICONS in main-view.js): Linie in Textfarbe, Flächen leicht in Moos. In em,
+/* Eigene Symbole (ICONS in src/lib/html.js): Linie in Textfarbe, Flächen leicht in Moos. In em,
    damit sie mit der Schrift ihres Orts mitwachsen (Menü, große Onboarding-Symbole). */
 .icon { width: 1.2em; height: 1.2em; vertical-align: -0.22em; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
 .icon .f { fill: rgba(var(--moss-rgb), 0.42); }

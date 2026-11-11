@@ -8,7 +8,7 @@ import importPlugin from 'eslint-plugin-import';
 // Je Schicht ein Verbot: aus allen höheren Ordnern (und dem Einstieg main.js) nichts importieren.
 const layerZones = (layers) => layers.slice(0, -1).map((layer, i) => ({
   target: `./src/${layer}`,
-  from: [...layers.slice(i + 1).map((l) => `./src/${l}`), './src/main.js'],
+  from: [...layers.slice(i + 1).map((l) => `./src/${l}/**`), './src/*.js'],
   message: `Schicht "${layer}" importiert nicht von oben (docs/module.md, nach oben über render-request.js).`,
 }));
 

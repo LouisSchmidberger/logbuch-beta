@@ -3,7 +3,6 @@ import { currentDek, runtime, state } from '../state/state.js';
 import { isSubpageView, syncLayerHistory } from './navigation.js';
 import { TEXT_SIZES, getTextSize, getThemeOverride, hapticsSupported, isDayProgressShown, isHapticsDisabled, isPatternDisabled } from '../lib/theme.js';
 import { AUTH_MIN_PASSWORD_LENGTH, closeInfoTip, formatDMY, infoPop, weekdayLong } from '../lib/format.js';
-import { syncToast } from '../data/notices.js';
 import { weekStartChange } from '../data/data.js';
 import { renderStepDialog, stepDialogOpen } from '../features/type-change.js';
 import { commitPendingNoteDraft, isNoteEditorOpen } from '../data/save.js';
@@ -20,6 +19,7 @@ import { announce, app, esc, icon } from '../lib/html.js';
 import { reminderTimeInputHtml } from '../features/reminder-input.js';
 import { WEEK_STARTS } from '../lib/calendar.js';
 import { currentLocale, t, tPlain } from '../lib/i18n.js';
+import { syncToast } from './notices.js';
 
 // --- Rendering: Haupt-App --------------------------------------------------
 function renderPushRow() {

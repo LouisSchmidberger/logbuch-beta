@@ -1,37 +1,5 @@
-// Logbuch - Einstieg. Die App-Logik liegt in Modulen unter src/, eins je Bereich (Übersicht:
-// docs/module.md). Die Module werden hier in der Reihenfolge des früheren Gesamtskripts
-// geladen, damit Code, der beim Laden läuft (Event-Listener, Theme), wie vorher nacheinander läuft.
-import './lib/config.js';
-import './lib/crypto.js';
-import './domain/fields.js';
-import './domain/dates.js';
-import './state/state.js';
-import './ui/navigation.js';
-import './lib/strings.js';
-import './lib/i18n.js';
-import './lib/theme.js';
-import './lib/format.js';
-import './data/notices.js';
-import './data/data.js';
-import './data/keys.js';
-import './features/field-form.js';
-import './features/type-change.js';
-import './features/section-form.js';
-import './data/save.js';
-import './data/device.js';
-import './data/account.js';
-import './ui/auth-view.js';
-import './ui/row-view.js';
-import './ui/stats-view.js';
-import './ui/about-view.js';
-import './ui/templates.js';
-import './ui/fields-view.js';
-import './ui/tutorial.js';
-import './ui/main-view.js';
-import './ui/events.js';
-import './ui/gestures.js';
-import './ui/deeplinks.js';
-import './features/session.js';
+// Logbuch - Einstieg: trägt die Haken für render-request.js ein, ruft die init…()-Funktionen der
+// Module in fester Reihenfolge auf und startet die App. Aufbau der Module: docs/module.md.
 import { ARRIVED_VIA_EMAIL_CHANGE, ARRIVED_VIA_SIGNUP_CONFIRM, MAIL_LINK_ERROR, supabase } from './lib/config.js';
 import { state } from './state/state.js';
 import { applyTextSize, applyTheme, getTextSize, getThemeOverride } from './lib/theme.js';
@@ -41,7 +9,6 @@ import { initMainView, render } from './ui/main-view.js';
 import { applyDeepLink, initDeeplinks, parseDeepLink } from './ui/deeplinks.js';
 import { initNavigation, syncLayerHistory } from './ui/navigation.js';
 import { initFormat } from './lib/format.js';
-import { initNotices } from './data/notices.js';
 import { initData } from './data/data.js';
 import { initKeys } from './data/keys.js';
 import { initSave } from './data/save.js';
@@ -53,6 +20,7 @@ import { setRenderHooks } from './lib/render-request.js';
 import { syncTodayOpenMarkers } from './ui/row-view.js';
 import { TUTORIAL_STEP_FIELD } from './state/onboarding-state.js';
 import { applyLocale, detectInitialLocale, initI18n, t } from './lib/i18n.js';
+import { initNotices } from './ui/notices.js';
 
 // Die echten Funktionen der Oberfläche für render-request.js eintragen, vor allem anderen.
 setRenderHooks({ render, syncTodayOpenMarkers, syncLayerHistory });

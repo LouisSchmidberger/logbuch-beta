@@ -16,28 +16,29 @@ die Lade-Reihenfolge vom Zufall des Import-Netzes abhängig und verwischen, was 
 
 | Schicht (Ordner) | Module | Inhalt |
 |---|---|---|
-| Grundlagen (`lib/`) | `strings`, `i18n`, `config`, `crypto`, `theme`, `platform`, `html`, `format`, `calendar`, `feature-access`, `render-request` | Texte und `t()`; Supabase-Client; Verschlüsselung; Dark Mode/Textgröße; Geräteerkennung; `esc`, `app` (das `#app`-Element), Icons, Screenreader-Ansagen; Datums-/Zahlenformate; reine Datumsrechnung; Schalter (`featureOn`); Haken in die Oberfläche (unten) |
+| Grundlagen (`lib/`) | `strings`, `strings-de`, `strings-en`, `i18n`, `config`, `crypto`, `theme`, `platform`, `html`, `format`, `calendar`, `feature-access`, `render-request`, `stepper` | Texte je Sprache und `t()`; Supabase-Client; Verschlüsselung; Dark Mode/Textgröße; Geräteerkennung; `esc`, `app` (das `#app`-Element), Icons, Screenreader-Ansagen; Datums-/Zahlenformate; reine Datumsrechnung; Schalter (`featureOn`); Haken in die Oberfläche (unten); Plus/Minus-Eingaben |
 | Zustand (`state/`) | `state`, `onboarding-state` | `state`, `runtime`, aktueller Schlüssel; Onboarding-/Tutorial-Stand |
 | Fachlogik (`domain/`) | `dates`, `fields`, `scores` | Zeitpläne, Zeiträume, Farben; Feld-Definitionen, Gruppen-Anordnung, berechnete Felder, Ziele; Bewertungen und Kennzahlen |
-| Daten (`data/`) | `errors`, `push-device`, `data`, `save`, `changelog`, `keys`, `account`, `device`, `notices` | Fehlertexte (mit Zwangs-Abmeldung); Push dieses Geräts; Laden; Speichern und Notizen; "Was ist neu"; Schlüssel-Ablauf; Export/Löschen; Installation und Push; Meldungen |
+| Daten (`data/`) | `errors`, `push-device`, `data`, `save`, `changelog`, `keys`, `account`, `device` | Fehlertexte (mit Zwangs-Abmeldung); Push dieses Geräts; Laden; Speichern und Notizen; "Was ist neu"; Schlüssel-Ablauf; Export/Löschen; Installation und Push |
 | Abläufe (`features/`) | `session`, `field-form`, `form-baseline`, `type-change`, `section-form`, `reminder-input` | Anmeldung; Feld-Formular; Rückfrage bei ungespeicherten Änderungen; Stufen/Typ ändern; Gruppen-Formular; Eingabe der Erinnerungszeit |
-| Oberfläche (`ui/`) | `*-view`, `templates`, `tutorial`, `navigation`, `gestures`, `deeplinks`, `events`, `actions/*` | Bildschirme; Vorlagen; Tutorial; Ebenen und Android-Zurück; Wischen/Ziehen; Deep-Links; Event-Delegation; Klick-Aktionen je Bereich |
+| Oberfläche (`ui/`) | `*-view`, `templates`, `tutorial`, `navigation`, `gestures`, `deeplinks`, `events`, `notices`, `actions/*` | Bildschirme; Vorlagen; Tutorial; Ebenen und Android-Zurück; Wischen/Ziehen; Deep-Links; Event-Delegation; Meldungen; Klick-Aktionen je Bereich |
 | Start (`src/main.js`) | `main` | Startreihenfolge |
 
 ## Regeln
 
 - **Nach oben nur über `render-request.js`.** `requestRender()` statt `render()`,
   `refreshOpenMarkers()`, `requestLayerSync()`: `main.js` trägt die echten Funktionen der
-  Oberfläche beim Start ein (`setRenderHooks`). Nur `events.js` und `ui/actions/` (nur von
-  `events.js` importiert) rufen `render()` direkt. Braucht ein tieferes Modul etwas Neues von oben, zuerst prüfen, ob
+  Oberfläche beim Start ein (`setRenderHooks`). `render()` direkt rufen nur `main.js`, `events.js` und `ui/actions/` (nur von `events.js`
+  importiert). Braucht ein tieferes Modul etwas Neues von oben, zuerst prüfen, ob
   es nicht nach unten gehört (die meisten Kreise lagen an Helfern im falschen Modul).
 - **Beim Laden eines Moduls läuft nichts außer Deklarationen.** Event-Listener und anderer
   Start-Code stehen in `init<Modul>()` am Modulende; `main.js` ruft alle in fester
   Reihenfolge auf. Grund: die Reihenfolge, in der der Browser Module auswertet, folgt dem
   Import-Netz, nicht der Dateiliste - Code beim Laden griffe sonst auf Konstanten anderer
   Module zu, die noch nicht ausgewertet sind ("Cannot access … before initialization").
-  Dasselbe gilt für Startwerte von Konstanten: aus einem anderen Modul nur
-  Funktionen aufrufen, keine Konstanten lesen (Beispiel `timePickerMax` in `row-view`).
+  Startwerte von Konstanten dürfen importierte Konstanten lesen (z.B. `APP_STATUS_DATE` aus
+  `CHANGELOG` in `about-view`): ohne Kreis-Imports ist das importierte Modul immer vorher
+  ausgewertet.
 - **Variablen, die mehrere Module setzen, stehen in `runtime`** (`state.js`). ES-Module
   können eine importierte Variable nicht neu zuweisen, eine Eigenschaft eines geteilten
   Objekts schon. `state` bleibt für das, was gerendert wird; `runtime` sind Merker für Abläufe.
@@ -48,3 +49,12 @@ die Lade-Reihenfolge vom Zufall des Import-Netzes abhängig und verwischen, was 
   `dev/sync-tests.mjs` über die Vorschau, die alle Exporte durchreicht).
 - Der Linter (`npm run lint`) meldet nicht importierte Namen und Kreise - nach dem
   Verschieben von Code zwischen Modulen zuerst laufen lassen.
+
+## Bekannte Abweichungen (bewusst, Abbau in späteren Phasen)
+
+- `lib/config` (Supabase-Client) und `lib/feature-access` (liest Schalter über Supabase) sind
+  keine reinen Grundlagen; sie liegen unten, weil fast alles sie braucht. Supabase-Zugriffe
+  stehen noch in 19 Modulen verteilt; Kapselung hinter eigenem Modul: Phase 4 (docs/umbau.md).
+- `domain/` baut teils HTML (`dates`, `fields`) und liest den App-Zustand (`state`, `runtime`)
+  direkt statt über Parameter - Fachlogik, Zustand und Darstellung
+  sind dort noch nicht getrennt. Kosten: diese Teile lassen sich nur mit DOM testen.

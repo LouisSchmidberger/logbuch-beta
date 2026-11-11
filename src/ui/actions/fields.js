@@ -1,7 +1,6 @@
 // Klick-Aktionen: Felder, Gruppen, Formulare. Schlüssel = data-action; die Event-Delegation in events.js ruft
 // handler(el, e, action) auf, nachdem sie eine alte Meldung und ein offenes Zeilen-Menü weggeräumt hat.
 
-import { stepInput } from '../../data/notices.js';
 import { newMultiOptionId } from '../../domain/fields.js';
 import { clampHabitFormSteps, closeHabitForm, convertHabitToCounter, habitFormStepCount, habitFormStepValue, habitToForm, handleHabitSave, newHabitForm, resizeLabels, scheduleToForm, stepEditKey, syncHabitFormFromDom, typeEditKey } from '../../features/field-form.js';
 import { openFormHasChanges, openHabitForm } from '../../features/form-baseline.js';
@@ -15,6 +14,7 @@ import { runtime, state } from '../../state/state.js';
 import { render } from '../main-view.js';
 import { effectivePreviewValue, openTimePicker, setPreviewValue } from '../row-view.js';
 import { adjustTemplate, createFromTemplate, createStarterPackage, openTemplateFollowUp, packageFormState, readTemplateFromDom, startTemplateConfirm, templateById, undoTemplateMerge } from '../templates.js';
+import { stepInput } from '../../lib/stepper.js';
 
 // "type-edit-kind", "type-edit-preset"
 const typeEditKindAction = (el, e, action) => {

@@ -15,9 +15,14 @@ import { state } from './state/state.js';
 import { multiOptionCounts } from './ui/about-view.js';
 import { FIELD_TEMPLATES, PACKAGE_GROUPS, isYesNoField, mergedMultiOptions, packageDefaultChoice, packageFieldCount, templateById, templateSlotForm, templateTakeMode, templateWithExtras, yesValueOf } from './ui/templates.js';
 
-// Vergleich wie früher über JSON; expect.soft prüft nach einem Fehlschlag weiter wie die alte Liste.
-const norm = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
-const eq = (name, actual, expected) => expect.soft(norm(actual), name).toEqual(norm(expected));
+// Vergleich wie früher über JSON-Text (auch die Reihenfolge der Schlüssel zählt); expect.soft prüft
+// nach einem Fehlschlag weiter wie die alte Liste.
+const eq = (name, actual, expected) => expect.soft(JSON.stringify(actual), name).toBe(JSON.stringify(expected));
+test('Umgebung wie im Testbrowser: Zeitzone und Sprache', () => {
+  eq('Zeitzone', Intl.DateTimeFormat().resolvedOptions().timeZone, 'Europe/Berlin');
+  eq('Sprache', navigator.language, 'de-DE');
+});
+
 const day = (offset) => formatKey(addDays(new Date(), offset)); // offset 0 = heute
 // Vorlagen-Helfer (mehrere Abschnitte)
 const slot = (id, i = 0) => { const tpl = templateById(id); return templateSlotForm(tpl, tpl.slots[i], 'x'); };

@@ -40,10 +40,9 @@ jobs:
       # Der veröffentlichte (verkleinerte) Stand einmal im Browser: Startseite unter /logbuch-beta/.
       - name: Produktions-Build im Browser (Rauchtest)
         run: node dev/dist-check.mjs
-      # Typprüfung der App: meldet nur (Annotation), bis die Altlasten abgebaut sind (docs/umbau.md).
-      - name: Typprüfung (nur Hinweis)
-        continue-on-error: true
-        run: npm run typecheck
+      # Typprüfung der App: scheitert erst, wenn es mehr Meldungen als die Altlasten werden (docs/umbau.md).
+      - name: Typprüfung (nicht mehr Meldungen als bisher)
+        run: node dev/typecheck-count.mjs
       - name: Vorschau-Server starten
         run: |
           node dev/server.mjs &

@@ -2,7 +2,6 @@ import { supabase } from '../lib/config.js';
 import { CHOICE_STEP_CAP, containerMaxSortOrder, invalidateTodayAutoCollapse, isCounterKind, isSinceComputed, layoutBlocks, sinceUsesStages, valueAsText } from '../domain/fields.js';
 import { runtime, state } from '../state/state.js';
 import { formatDMY, infoTip } from '../lib/format.js';
-import { stepperInput } from '../data/notices.js';
 import { SLIDER_STEP_CAP, habitToForm, resizeLabels, stepEditKey, syncHabitFormFromDom, typeEditKey } from './field-form.js';
 import { NOTE_MAX_LENGTH, PREV_KEY, getNote, rewriteDays, saveDay, updateHabitPayload, withPrev } from '../data/save.js';
 import { esc } from '../lib/html.js';
@@ -11,6 +10,7 @@ import { formatKey, isPeriodField } from '../lib/calendar.js';
 import { requestRender } from '../lib/render-request.js';
 import { markFormBaseline } from './form-baseline.js';
 import { formatNumber, t, tPlain } from '../lib/i18n.js';
+import { stepperInput } from '../lib/stepper.js';
 
 const stepChangeRunning = new Set(); // defIds
 const stepChangeStarting = new Set(); // defIds - Definition wird gerade markiert (zeigt schon "Wird umgestellt")
