@@ -34,7 +34,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 | Aufbau des Codes in Module, `runtime`, `init…()`, neue Module/Imports | [docs/module.md](docs/module.md) |
 | Umbau (Vite, TypeScript, Schichten, Supabase-Kapselung, React), Branch-Regeln dafür | [docs/umbau.md](docs/umbau.md) |
 | Lokale Vorschau, Screenshots, automatische Tests, CI, `dev/` (nachgebautes Supabase) | [dev/README.md](dev/README.md) |
-| Neue Funktion freigeben, Schalter (`featureOn`), Tester, Premium | [docs/freigabe.md](docs/freigabe.md) |
+| Neue Funktion freigeben, Schalter (`featureOn`), Tester, Premium, "Was ist neu" (`CHANGELOG`), Deploy-Schritte | [docs/freigabe.md](docs/freigabe.md) |
 
 ## Stack und Hosting
 
