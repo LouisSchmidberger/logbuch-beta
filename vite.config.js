@@ -15,7 +15,7 @@ const BROWSERS = ['es2020', 'chrome87', 'edge88', 'firefox78', 'safari14'];
 
 function previewHook() {
   const mods = readdirSync(`${root}src`, { recursive: true }).map((f) => f.replace(/\\/g, '/'))
-    .filter((f) => f.endsWith('.js') && f !== 'main.js').sort();
+    .filter((f) => f.endsWith('.js') && !f.endsWith('.test.js') && f !== 'main.js').sort();
   const code = `
 ${mods.map((f, i) => `import * as __m${i} from './${f}';`).join('\n')}
 import { install as __install } from '../dev/preview-hook.js';
@@ -24,7 +24,7 @@ const __get = (n) => { for (const m of __mods) if (n in m) return m[n]; return u
 __install({
   state: __get('state'), render: __get('render'), saveDayNow: __get('saveDayNow'), encryptData: __get('encryptData'),
   DEF_PLAINTEXT_CLEARED: __get('DEF_PLAINTEXT_CLEARED'), supabase: __get('supabase'), dek: () => __get('currentDek'),
-  internals: new Proxy({}, { get: (_, n) => __get(n) }), // für dev/tests.mjs und dev/sync-tests.mjs
+  internals: new Proxy({}, { get: (_, n) => __get(n) }), // für dev/sync-tests.mjs
 });
 `;
   return {
@@ -37,10 +37,13 @@ __install({
 
 export default defineConfig(({ mode }) => {
   const preview = mode === 'preview';
+  // Vitest (Modus "test"): wie die Vorschau mit nachgebautem Supabase, Zeitzone wie im Testbrowser.
+  const test = mode === 'test';
+  if (test) process.env.TZ = 'Europe/Berlin';
   return {
     base: './',
     publicDir: 'public',
-    resolve: preview ? { alias: { '@supabase/supabase-js': `${root}dev/mock-supabase.js` } } : {},
+    resolve: preview || test ? { alias: { '@supabase/supabase-js': `${root}dev/mock-supabase.js` } } : {},
     plugins: preview ? [previewHook()] : [],
     build: {
       outDir: preview ? 'dev/.preview' : 'dist',
@@ -52,6 +55,12 @@ export default defineConfig(({ mode }) => {
       cssTarget: BROWSERS,
       // Vorschau unverkleinert: Fehlermeldungen in den Tests zeigen lesbare Namen.
       minify: !preview,
+    },
+    test: {
+      environment: 'jsdom',
+      include: ['src/**/*.test.js'],
+      setupFiles: ['dev/test-setup.js'],
+      env: { TZ: 'Europe/Berlin' },
     },
   };
 });

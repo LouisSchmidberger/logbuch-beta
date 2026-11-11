@@ -31,6 +31,8 @@ jobs:
         run: npm run lint
       - name: Verschlüsselung (feste Testdaten)
         run: node dev/crypto-tests.mjs
+      - name: Tests der Rechenlogik (Vitest)
+        run: npx vitest run
       - name: Build
         run: npm run build
       - name: Kein Vorschau-Code im Build
@@ -47,8 +49,6 @@ jobs:
           node dev/server.mjs &
           for i in $(seq 1 60); do curl -sf http://localhost:5180/ > /dev/null && exit 0; sleep 1; done
           exit 1
-      - name: Tests der Rechenlogik
-        run: node dev/tests.mjs
       # Bedienabläufe: Registrieren, Onboarding, Tutorial, App - scheitern, wenn ein Knopf fehlt
       # oder die Seite dabei einen Fehler wirft.
       - name: Rundgänge (Handy)

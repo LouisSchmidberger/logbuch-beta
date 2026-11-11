@@ -44,6 +44,7 @@ die Lade-Reihenfolge vom Zufall des Import-Netzes abhängig und verwischen, was 
   Eine Variable, die nur ihr eigenes Modul setzt, bleibt dort als `let`.
 - **Neue Klick-Aktion** = neuer Eintrag in der passenden Tabelle in `src/ui/actions/`
   (`'aktion': (el, e, action) => { … }`), nicht im Verteiler.
-- **Was `dev/tests.mjs` prüft, muss exportiert sein**; die Vorschau reicht alle Exporte durch.
+- **Was die Tests prüfen, muss exportiert sein** (`src/logic.test.js` importiert direkt,
+  `dev/sync-tests.mjs` über die Vorschau, die alle Exporte durchreicht).
 - Der Linter (`npm run lint`) meldet nicht importierte Namen und Kreise - nach dem
   Verschieben von Code zwischen Modulen zuerst laufen lassen.

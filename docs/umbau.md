@@ -114,8 +114,10 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
   `src/ui/actions/`, die gemeinsame Vorarbeit bleibt im Verteiler in `events.js`. Alle 152
   Zweige maschinell als wörtlich übernommen geprüft. Die übrigen Listener (`change`, `input`,
   `keydown`) sind klein genug und bleiben vorerst Ketten.
-- **Tests mit Vitest**: jeder Fall aus `dev/tests.mjs` 1:1 als `src/**/*.test.ts`, danach
-  `internals` aus `dev/server.mjs` streichen. Rundgänge bleiben Puppeteer.
+- **Tests mit Vitest** (erledigt 2026-11-11): alle 86 Fälle 1:1 in `src/logic.test.js` (jsdom,
+  ohne Browser); `dev/tests.mjs` entfällt. `internals` bleibt für `dev/sync-tests.mjs` (braucht
+  die Datenbank). Aufteilen je Modul mit dem Umbenennen nach `.ts` (Phase 3). Rundgänge bleiben
+  Puppeteer.
 - `STRINGS` in `de.ts`/`en.ts`, `CHANGELOG` in eine eigene Datei.
 - ESLint `max-lines` 500 als Warnung (ohne Texte und `CHANGELOG`).
 

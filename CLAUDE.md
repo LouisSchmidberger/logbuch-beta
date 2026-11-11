@@ -108,8 +108,8 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 - **Sichtbare Änderungen vorher ansehen**: mit der lokalen Vorschau (`dev/`, siehe
   dev/README.md) Screenshots machen, bevor live geht. Neue Tabelle/Spalte/Supabase-Aufruf →
   `dev/mock-supabase.js` nachziehen.
-- **Rechenlogik geändert** → `node dev/tests.mjs` vor dem Commit, neue Logik bekommt dort einen
-  Fall. Regel, die es in JS und SQL gibt → Fälle in `dev/sync-tests.mjs`. Verschlüsselung
+- **Rechenlogik geändert** → `npm test` vor dem Commit, neue Logik bekommt einen Fall in
+  `src/logic.test.js`. Regel, die es in JS und SQL gibt → Fälle in `dev/sync-tests.mjs`. Verschlüsselung
   angefasst → `node dev/crypto-tests.mjs` (Testdaten nie anpassen). Nach jedem Push die CI
   ansehen (`gh run list`); rot = vor allem anderen beheben. **Neue Funktion für Nutzer** → ob sie einen Schalter
   bekommt und auf welcher Stufe sie startet, entscheidet der Nutzer pro Funktion – beim Klären

@@ -57,11 +57,11 @@ Eigene Abläufe ohne neues Skript: `node dev/shoot.mjs <Schritte>`, zum Beispiel
 `seeded "tap:Menü" "tap:Einstellungen" shot:einstellungen` (alle Schritte im Dateikopf).
 `buttons` listet, was gerade antippbar ist.
 
-**Automatische Tests** der Rechenlogik (Tage seit, Dauer, Zeitpläne, Schalter …):
-`node dev/tests.mjs` bei laufendem Server, Ausgabe je Fall `ok`/`FEHLER`, Exit-Code 1 bei
-Fehlern. Sie laufen im echten App-Code: `internals` im Vorschau-Haken (`dev/server.mjs`)
-liefert jeden Export der Module unter `src/` - eine neue getestete Funktion muss in ihrem Modul
-exportiert sein.
+**Automatische Tests** der Rechenlogik (Tage seit, Dauer, Zeitpläne, Schalter …): `npm test`
+(Verschlüsselung und Vitest, ohne Server). Die Fälle stehen in `src/logic.test.js` und
+importieren die Module direkt; Vitest läuft mit jsdom, nachgebautem Supabase, Sprache de-DE und
+Zeitzone Europe/Berlin wie der Testbrowser (`vite.config.js`, `dev/test-setup.js`). Eine neue
+getestete Funktion muss in ihrem Modul exportiert sein.
 
 **Verschlüsselung** (`node dev/crypto-tests.mjs`, ohne Server): entschlüsselt die festen
 Testdaten in `dev/fixtures/crypto.json` (Schlüssel mit Passwort und Ersatzschlüssel entpacken,

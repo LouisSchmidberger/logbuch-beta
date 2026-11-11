@@ -67,7 +67,7 @@ insert into public.user_access (user_id, access_group)
 ```
 
 Neuer Schalter (ob und mit welcher Stufe, entscheidet Louis pro Funktion): Zeile per Migration anlegen, im Code `featureOn`, in
-`dev/tests.mjs` nichts nötig (die Stufenlogik ist dort getestet). Vorschau:
+den Tests nichts nötig (die Stufenlogik ist in `src/logic.test.js` getestet). Vorschau:
 `window.__logbuchPreview.admin.setFeature(key, stage)` / `setAccessGroup(email, group)`.
 
 ## "Was ist neu"
