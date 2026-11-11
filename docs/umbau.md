@@ -61,12 +61,12 @@ ohne Kreis-Imports geordnet (docs/module.md).
 - Beta-Test eines Umbau-Branches (Nutzer-Entscheidung 2026-11-10: nach grünen lokalen Prüfungen
   ohne Rückfrage; Beta = Alltagskonto, Datenbank mit Live geteilt): `git push beta
   umbau/phase-…:main`, zurück mit `git push --force-with-lease beta main:main`.
-- **Rückweg seit Phase 1**: veröffentlicht wird nur noch über den CI-Job `deploy`. Ein Stand
+- **Rückweg seit Phase 1**: veröffentlicht wird nur noch über die CI (`deploy.yml`). Ein Stand
   ohne diesen Job (z.B. `vor-umbau`) veröffentlicht nichts, die Seite bliebe beim neuen Stand.
-  Deshalb zurück immer vorwärts: `git revert` der Umbau-Commits, die `ci.yml` mit `deploy`
-  bleibt. Notfalls Pages-Quelle wieder auf "Deploy from a branch" (main, Stamm) und den alten
+  Deshalb zurück immer vorwärts: `git revert` der Umbau-Commits, `ci.yml` und `deploy.yml`
+  bleiben. Notfalls Pages-Quelle wieder auf "Deploy from a branch" (main, Stamm) und den alten
   Stand pushen.
-- Der Übergangs-Teil in `ci.yml` ("Stand vor dem Build … behalten") ist nach dem ersten
+- Der Übergangs-Teil in `deploy.yml` ("Stand vor dem Build … behalten") ist nach dem ersten
   Live-Deploy mit Vite überflüssig; danach entfernen.
 - Live wie in `CLAUDE.md` "Deployment": gesammelt, auf Okay des Nutzers.
 
@@ -91,7 +91,7 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
 - Vorschau = Vite-Build im Modus "preview" (Supabase-Nachbau per Alias, Vorschau-Haken an
   `main.js`), also derselbe gebündelte Code wie live. Die CI prüft, dass `dist/` keinen
   Vorschau-Code enthält; `dev/` wird nicht mehr veröffentlicht.
-- Veröffentlichen über den CI-Job `deploy`, nur wenn alles grün ist; Skript und CSS des vorigen
+- Veröffentlichen nur über die CI (`deploy.yml`; live wenn alles grün ist, Beta nach den schnellen Prüfungen); Skript und CSS des vorigen
   Stands bleiben eine Runde online (docs/freigabe.md).
 - `npm run typecheck` (`checkJs`, nicht streng): 257 Meldungen
   zum Start, fast alle "Eigenschaft unbekannt" (`event.target.dataset` u. ä.), kein echter

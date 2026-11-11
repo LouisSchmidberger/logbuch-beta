@@ -74,10 +74,10 @@ der Datenbank gibt (Zeitplan, Zeitraum-Start), für Hunderte Fälle auf beiden S
 jeden Unterschied. Braucht den Vorschau-Server und eine lokale Datenbank aus allen Migrationen
 (`npx supabase db start`, braucht Docker Desktop). Neue doppelte Regel -> dort Fälle ergänzen.
 
-**CI** (`.github/workflows/ci.yml`): bei jedem Push auf GitHub laufen Linter, Krypto-Test,
-Build mit Rauchtest im Browser, Typprüfung (vorerst nur als Hinweis), Tests, Rundgänge, eine Wegwerf-Datenbank aus allen
-Migrationen, der Abgleich und die Typprüfung der Edge Functions; nur wenn alles grün ist,
-veröffentlicht der Job `deploy` (docs/freigabe.md). Ergebnis im Reiter "Actions" des Repos;
+**CI** (`.github/workflows/ci.yml`): bei jedem Push auf GitHub laufen gleichzeitig Linter, Krypto-Test,
+Build mit Rauchtest im Browser, Typprüfung (scheitert erst bei mehr Meldungen als bisher), Tests, Rundgänge, eine Wegwerf-Datenbank aus allen
+Migrationen, der Abgleich und die Typprüfung der Edge Functions; veröffentlicht wird über
+`deploy.yml`, live nur wenn alles grün ist, die Beta schon nach den schnellen Prüfungen (docs/freigabe.md). Ergebnis im Reiter "Actions" des Repos;
 ein Fehler kommt zusätzlich per Mail. Lokal: `npm run lint` (auch im pre-commit-Hook),
 `npm run build`, `npm run typecheck`.
 

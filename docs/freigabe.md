@@ -19,9 +19,12 @@ alle.
 
 ## Deployment-Schritte
 
-1. App: `git push` genügt. Die CI (`.github/workflows/ci.yml`) prüft alles, baut mit Vite und
-   veröffentlicht `dist/` über den Job `deploy`. Ist ein Schritt rot, bleibt der alte Stand
-   online; den Fehler vor allem anderen beheben. Ohne neuen Commit: Actions → CI → "Run
+1. App: `git push` genügt. Die CI (`.github/workflows/ci.yml`) prüft in gleichzeitigen Jobs,
+   baut mit Vite und veröffentlicht `dist/` (`deploy.yml`). **Live** erst, wenn alles grün ist;
+   sonst bleibt der alte Stand online. **Beta** schon nach den schnellen Prüfungen (Linter,
+   Verschlüsselung, Rechenlogik, Build, Edge Functions; ca. 2 statt 5 Minuten, Nutzer-Entscheidung
+   2026-11-11): Rundgänge und Abgleich JS ↔ SQL laufen weiter, werden sie rot, ist der Stand
+   schon auf der Beta. Rot immer vor allem anderen beheben. Ohne neuen Commit: Actions → CI → "Run
    workflow" auf `main`. Voraussetzung: Pages-Quelle des Repos ist "GitHub Actions" (sonst
    veröffentlicht GitHub den ungebauten Stamm, und die Seite lädt nicht); neues Repo zuerst
    umstellen (`gh api -X PUT repos/<owner>/<repo>/pages -f build_type=workflow`), dann pushen.

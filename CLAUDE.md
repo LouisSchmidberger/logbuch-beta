@@ -56,7 +56,8 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
   `submit-feedback`, `ops-stats` (Kennzahlen für den Hub); pg_cron für Erinnerungen und Aufräum-Jobs. Resend als SMTP und für
   Feedback-Mails.
 - **Hosting**: GitHub Pages, statisch. Veröffentlicht wird nur `dist/`, und nur von der CI
-  (`.github/workflows/ci.yml`, Job `deploy`), wenn alle Prüfungen grün sind.
+  (`.github/workflows/deploy.yml`): live erst, wenn alle Prüfungen grün sind, die Beta schon nach
+  den schnellen (docs/freigabe.md).
 
 ## Konventionen
 
@@ -139,7 +140,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 ## Deployment
 
 **Erst Beta, dann live** (Nutzer-Entscheidungen 2026-10-11/-14): `git push beta main` → CI
-veröffentlicht bei Grün die Beta, die der Nutzer täglich mit echtem Konto nutzt. Live (`git push
+veröffentlicht nach den schnellen Prüfungen die Beta (Rest danach rot = sofort beheben), die der Nutzer täglich mit echtem Konto nutzt. Live (`git push
 origin main`) nur gesammelt am Sitzungsende, auf sein Okay, mit einem `CHANGELOG`-Eintrag.
 **Datenbank und Edge Functions teilen beide**: Migrationen/Deploys wirken sofort live, also so
 bauen, dass die alte Live-Version weiterläuft. Schritte und Schalter: **docs/freigabe.md**.
