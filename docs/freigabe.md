@@ -75,6 +75,19 @@ den Tests nichts nötig (die Stufenlogik ist in `src/logic.test.js` getestet). V
 
 ## "Was ist neu"
 
+`CHANGELOG` in `src/data/changelog.js`: ein Eintrag pro Live-Gang für alles aus der Sitzung
+(de + en), Datum des Live-Gangs; den obersten erweitern, solange er nicht live ist. Das Datum ist
+zugleich "Beta – Stand …" in "Über Logbuch".
+
+- Zwei Stufen: `short` = eine einfache Zeile pro Neuerung fürs Fenster beim Start (für jemanden,
+  der die App kaum kennt), `de`/`en` = ausführlicher für "Über Logbuch".
+- Nur Begriffe, die man in der App sieht oder aus dem Alltag kennt, und beschreiben, was man tut
+  ("wenn du ein Feld anlegst"), nicht interne Sammelnamen ("das Formular für Felder", "die
+  Übersichten").
+- Nicht hinein: reine Interna, Doku, Textkorrekturen und Komfort-Verbesserungen
+  (Zeichenzähler, Anleitung leichter erreichbar, Anzeige-Wahl früher) - nur Neues, das Nutzer
+  kennen sollten, um es zu nutzen.
+
 Der Eintrag gehört zur Freigabe für **alle**, nicht zum Live-Gang: eine Funktion hinter einem
 Schalter bekommt ihren `CHANGELOG`-Eintrag erst mit dem Live-Gang, der sie für alle
 freischaltet (bzw. ihren Schalter aus dem Code nimmt).

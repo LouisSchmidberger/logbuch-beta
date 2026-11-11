@@ -120,15 +120,9 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
   PC muss funktionieren, gibt aber nicht die Richtung vor.
 - **Texte in beiden Sprachen**: neue Strings immer über `STRINGS`/`t()` in `de` UND `en`,
   in identischer Key-Reihenfolge.
-- **`CHANGELOG`** in `src/data/changelog.js` ("Was ist neu"): ein Eintrag pro Live-Gang für alles aus der
-  Sitzung (de + en), Datum des Live-Gangs; den obersten erweitern, solange er nicht live ist.
-  Zwei Stufen: `short` = eine einfache Zeile pro Neuerung fürs Fenster beim Start (für
-  jemanden, der die App kaum kennt), `de`/`en` = ausführlicher für "Über Logbuch". Nur Begriffe, die man in der App sieht oder aus dem Alltag kennt, und beschreiben, was man
-  tut ("wenn du ein Feld anlegst"), nicht interne Sammelnamen ("das Formular für Felder",
-  "die Übersichten"). Das Datum ist zugleich "Beta – Stand …" in "Über Logbuch". Reine
-  Interna, Doku, Textkorrekturen und
-  Komfort-Verbesserungen (Zeichenzähler, Anleitung leichter erreichbar, Anzeige-Wahl früher) nicht – nur
-  Neues, das Nutzer kennen sollten, um es zu nutzen.
+- **`CHANGELOG`** in `src/data/changelog.js` ("Was ist neu"): ein Eintrag pro Live-Gang für
+  Neues, das Nutzer kennen sollten. Vor dem Schreiben docs/freigabe.md "Was ist neu" lesen
+  (zwei Stufen, Wortwahl, was nicht hineingehört).
 - **Datenschutz-Text in "Über Logbuch"** (`renderPrivacySection`, `about.privacy.*`) sagt
   konkret, was der Betreiber sehen kann und was nicht. Jede Änderung, die daran etwas
   verschiebt (neue unverschlüsselte Spalte, zusätzliches Log, serverseitige Auswertung,
