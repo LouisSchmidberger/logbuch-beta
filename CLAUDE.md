@@ -34,11 +34,11 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 | Aufbau des Codes in Module, `runtime`, `init…()`, neue Module/Imports | [docs/module.md](docs/module.md) |
 | Umbau (Vite, TypeScript, Schichten, Supabase-Kapselung, React), Branch-Regeln dafür | [docs/umbau.md](docs/umbau.md) |
 | Lokale Vorschau, Screenshots, automatische Tests, CI, `dev/` (nachgebautes Supabase) | [dev/README.md](dev/README.md) |
-| Neue Funktion freigeben, Schalter (`featureOn`), Tester, Premium | [docs/freigabe.md](docs/freigabe.md) |
+| Neue Funktion freigeben, Schalter (`featureOn`), Tester, Premium, "Was ist neu" (`CHANGELOG`), Deploy-Schritte | [docs/freigabe.md](docs/freigabe.md) |
 
 ## Stack und Hosting
 
-- **Frontend**: `logbuch.html` (Einstieg), ES-Module unter `src/` (`main.js` startet, sonst eins
+- **Frontend**: `logbuch.html` (Einstieg), ES-Module unter `src/<schicht>/` (`main.js` startet, sonst eins
   je Bereich, docs/module.md), `src/logbuch.css`, Vanilla JS, kein Framework. **Build mit Vite**
   (`npm run build` → `dist/`, Hash im Dateinamen statt Cache-Busting von Hand); `public/` geht
   unverändert mit (`sw.js`, Manifest, Icons, Schriften). Umbau-Plan (TypeScript usw.):
@@ -56,11 +56,13 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
   `submit-feedback`, `ops-stats` (Kennzahlen für den Hub); pg_cron für Erinnerungen und Aufräum-Jobs. Resend als SMTP und für
   Feedback-Mails.
 - **Hosting**: GitHub Pages, statisch. Veröffentlicht wird nur `dist/`, und nur von der CI
-  (`.github/workflows/ci.yml`, Job `deploy`), wenn alle Prüfungen grün sind.
+  (`.github/workflows/deploy.yml`): live erst, wenn alle Prüfungen grün sind, die Beta schon nach
+  den schnellen (docs/freigabe.md).
 
 ## Konventionen
 
-- Rendering per Template-Strings + Event-Delegation auf `#app` (`data-action`), kein
+- Rendering per Template-Strings + Event-Delegation auf `#app` (`data-action`; Klick-Aktionen als
+  Tabelle je Bereich in `src/ui/actions/`), kein
   virtuelles DOM (bewusst einfach). `render()` ersetzt das ganze `#app` und stellt den Fokus
   wieder her – **neue klickbare Elemente brauchen stabile, eindeutige `data-*`-Merkmale bzw.
   eine id**.
@@ -107,8 +109,8 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 - **Sichtbare Änderungen vorher ansehen**: mit der lokalen Vorschau (`dev/`, siehe
   dev/README.md) Screenshots machen, bevor live geht. Neue Tabelle/Spalte/Supabase-Aufruf →
   `dev/mock-supabase.js` nachziehen.
-- **Rechenlogik geändert** → `node dev/tests.mjs` vor dem Commit, neue Logik bekommt dort einen
-  Fall. Regel, die es in JS und SQL gibt → Fälle in `dev/sync-tests.mjs`. Verschlüsselung
+- **Rechenlogik geändert** → `npm test` vor dem Commit, neue Logik bekommt einen Fall in
+  `src/logic.test.js`. Regel, die es in JS und SQL gibt → Fälle in `dev/sync-tests.mjs`. Verschlüsselung
   angefasst → `node dev/crypto-tests.mjs` (Testdaten nie anpassen). Nach jedem Push die CI
   ansehen (`gh run list`); rot = vor allem anderen beheben. **Neue Funktion für Nutzer** → ob sie einen Schalter
   bekommt und auf welcher Stufe sie startet, entscheidet der Nutzer pro Funktion – beim Klären
@@ -118,15 +120,9 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
   PC muss funktionieren, gibt aber nicht die Richtung vor.
 - **Texte in beiden Sprachen**: neue Strings immer über `STRINGS`/`t()` in `de` UND `en`,
   in identischer Key-Reihenfolge.
-- **`CHANGELOG`** in `src/about-view.js` ("Was ist neu"): ein Eintrag pro Live-Gang für alles aus der
-  Sitzung (de + en), Datum des Live-Gangs; den obersten erweitern, solange er nicht live ist.
-  Zwei Stufen: `short` = eine einfache Zeile pro Neuerung fürs Fenster beim Start (für
-  jemanden, der die App kaum kennt), `de`/`en` = ausführlicher für "Über Logbuch". Nur Begriffe, die man in der App sieht oder aus dem Alltag kennt, und beschreiben, was man
-  tut ("wenn du ein Feld anlegst"), nicht interne Sammelnamen ("das Formular für Felder",
-  "die Übersichten"). Das Datum ist zugleich "Beta – Stand …" in "Über Logbuch". Reine
-  Interna, Doku, Textkorrekturen und
-  Komfort-Verbesserungen (Zeichenzähler, Anleitung leichter erreichbar, Anzeige-Wahl früher) nicht – nur
-  Neues, das Nutzer kennen sollten, um es zu nutzen.
+- **`CHANGELOG`** in `src/data/changelog.js` ("Was ist neu"): ein Eintrag pro Live-Gang für
+  Neues, das Nutzer kennen sollten. Vor dem Schreiben docs/freigabe.md "Was ist neu" lesen
+  (zwei Stufen, Wortwahl, was nicht hineingehört).
 - **Datenschutz-Text in "Über Logbuch"** (`renderPrivacySection`, `about.privacy.*`) sagt
   konkret, was der Betreiber sehen kann und was nicht. Jede Änderung, die daran etwas
   verschiebt (neue unverschlüsselte Spalte, zusätzliches Log, serverseitige Auswertung,
@@ -138,7 +134,7 @@ Bevor du an einem dieser Bereiche etwas änderst, lies die zugehörige Datei:
 ## Deployment
 
 **Erst Beta, dann live** (Nutzer-Entscheidungen 2026-10-11/-14): `git push beta main` → CI
-veröffentlicht bei Grün die Beta, die der Nutzer täglich mit echtem Konto nutzt. Live (`git push
+veröffentlicht nach den schnellen Prüfungen die Beta (Rest danach rot = sofort beheben), die der Nutzer täglich mit echtem Konto nutzt. Live (`git push
 origin main`) nur gesammelt am Sitzungsende, auf sein Okay, mit einem `CHANGELOG`-Eintrag.
 **Datenbank und Edge Functions teilen beide**: Migrationen/Deploys wirken sofort live, also so
 bauen, dass die alte Live-Version weiterläuft. Schritte und Schalter: **docs/freigabe.md**.

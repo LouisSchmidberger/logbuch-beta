@@ -1,8 +1,12 @@
-# Bei jedem Push (Beta und live): Linter, Verschlüsselung, Build, Rechenlogik-Tests, Rundgänge,
-# Abgleich JS <-> SQL auf einer frischen Wegwerf-Datenbank aus allen Migrationen, Typprüfung der
-# Edge Functions. Erst wenn alles grün ist, baut "deploy" die App und veröffentlicht sie auf
-# GitHub Pages (nur Push auf main). Rot = nichts wird veröffentlicht, der alte Stand bleibt online.
-# Das Repo (logbuch bzw. logbuch-beta) bestimmt, wohin: dieselbe Datei läuft in beiden.
+# Bei jedem Push (Beta und live), in gleichzeitigen Jobs: schnelle Prüfungen (Linter,
+# Verschlüsselung, Rechenlogik, Build, Typprüfung), Rauchtest und Rundgänge im Browser, Abgleich
+# JS <-> SQL auf einer frischen Wegwerf-Datenbank aus allen Migrationen, Typprüfung der Edge
+# Functions. Veröffentlicht wird nur bei Push auf main (deploy.yml):
+#   - Beta (logbuch-beta): sobald die schnellen Prüfungen und die Edge Functions grün sind, damit
+#     ein Stand nach ~1 Minute zum Testen bereitsteht (Nutzer-Entscheidung 2026-11-11). Werden
+#     Rauchtest, Rundgänge oder Abgleich danach rot, ist der Stand schon auf der Beta: sofort beheben.
+#   - live (logbuch): erst wenn ALLES grün ist. Rot = nichts wird veröffentlicht.
+# Dieselbe Datei läuft in beiden Repos; das Repo bestimmt den Weg.
 # Actions mit fester Commit-Kennung statt Versions-Tag: ein Tag lässt sich nachträglich
 # verschieben, und der Deploy-Job darf auf Pages schreiben. Neue Version: Kennung des Release-
 # Commits eintragen (gh api repos/<owner>/<action>/commits/<tag> --jq .sha).
@@ -14,10 +18,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  app:
-    name: Linter, Tests, Migrationen
+  checks:
+    name: Linter, Tests, Build
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       CI: 'true'
     steps:
@@ -31,24 +35,38 @@ jobs:
         run: npm run lint
       - name: Verschlüsselung (feste Testdaten)
         run: node dev/crypto-tests.mjs
+      - name: Tests der Rechenlogik (Vitest)
+        run: npx vitest run
       - name: Build
         run: npm run build
       - name: Kein Vorschau-Code im Build
         run: test -f dist/logbuch.html && ! grep -rlE 'logbuchPreview|mock-supabase|previewAdmin' dist/
+      # Typprüfung der App: scheitert erst, wenn es mehr Meldungen als die Altlasten werden (docs/umbau.md).
+      - name: Typprüfung (nicht mehr Meldungen als bisher)
+        run: node dev/typecheck-count.mjs
+
+  walkthroughs:
+    name: Rauchtest, Rundgänge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       # Der veröffentlichte (verkleinerte) Stand einmal im Browser: Startseite unter /logbuch-beta/.
+      # Hier statt bei den schnellen Prüfungen: dauert ~50 s (Browserstart), die Beta wartet nicht darauf.
       - name: Produktions-Build im Browser (Rauchtest)
-        run: node dev/dist-check.mjs
-      # Typprüfung der App: meldet nur (Annotation), bis die Altlasten abgebaut sind (docs/umbau.md).
-      - name: Typprüfung (nur Hinweis)
-        continue-on-error: true
-        run: npm run typecheck
+        run: npm run build && node dev/dist-check.mjs
       - name: Vorschau-Server starten
         run: |
           node dev/server.mjs &
           for i in $(seq 1 60); do curl -sf http://localhost:5180/ > /dev/null && exit 0; sleep 1; done
           exit 1
-      - name: Tests der Rechenlogik
-        run: node dev/tests.mjs
       # Bedienabläufe: Registrieren, Onboarding, Tutorial, App - scheitern, wenn ein Knopf fehlt
       # oder die Seite dabei einen Fehler wirft.
       - name: Rundgänge (Handy)
@@ -62,6 +80,26 @@ jobs:
           name: screenshots
           path: dev/screenshots/
           retention-days: 7
+
+  database:
+    name: Migrationen, Abgleich JS <-> SQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Der Abgleich rechnet die App-Seite über die Vorschau.
+      - name: Vorschau-Server starten
+        run: |
+          node dev/server.mjs &
+          for i in $(seq 1 60); do curl -sf http://localhost:5180/ > /dev/null && exit 0; sleep 1; done
+          exit 1
       - name: Wegwerf-Datenbank aus allen Migrationen
         run: npx supabase db start
       - name: Abgleich JS <-> SQL
@@ -80,53 +118,22 @@ jobs:
       # npm:-Pakete dort statt sie selbst zu laden.
       - run: deno check --node-modules-dir=auto supabase/functions/*/index.ts
 
-  deploy:
-    name: Veröffentlichen (GitHub Pages)
-    needs: [app, functions]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+  deploy-beta:
+    name: Veröffentlichen (Beta)
+    needs: [checks, functions]
+    if: github.repository == 'LouisSchmidberger/logbuch-beta' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: Kein Vorschau-Code im Build
-        run: test -f dist/logbuch.html && ! grep -rlE 'logbuchPreview|mock-supabase|previewAdmin' dist/
-      # Skript und CSS des bisherigen Stands eine Runde mitveröffentlichen: ein Browser mit noch
-      # zwischengespeichertem altem logbuch.html (Pages: bis 10 Minuten) fände sie sonst nicht mehr.
-      - name: Dateien des vorigen Stands behalten
-        run: |
-          owner="${GITHUB_REPOSITORY_OWNER,,}"
-          base="https://${owner}.github.io/${GITHUB_REPOSITORY#*/}/"
-          old=$(curl -sf "${base}logbuch.html" || true)
-          for f in $(printf '%s' "$old" | grep -o 'assets/[A-Za-z0-9._-]*\.\(js\|css\)' | sort -u); do
-            if [ ! -e "dist/$f" ] && curl -sf "${base}$f" -o "dist/$f"; then echo "behalten: $f"; fi
-          done
-          # Übergang vom Stand vor dem Build (ungebündelt, logbuch.js?v=…): dessen Dateien ebenso eine
-          # Runde behalten. Greift nur, solange online noch dieser alte Stand liegt (docs/umbau.md).
-          if printf '%s' "$old" | grep -q 'logbuch\.js?v='; then
-            mkdir -p dist/js dist/vendor
-            for f in logbuch.js logbuch.css; do curl -sf "${base}$f" -o "dist/$f" && echo "behalten: $f"; done
-            for f in $(grep -o 'js/[a-z0-9-]*\.js' dist/logbuch.js | sort -u); do curl -sf "${base}$f" -o "dist/$f" && echo "behalten: $f"; done
-            for f in $(cat dist/js/*.js | grep -o 'vendor/supabase-js-[0-9.]*\.js' | sort -u); do curl -sf "${base}$f" -o "dist/$f" && echo "behalten: $f"; done
-          fi
-      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
-      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
-        with:
-          path: dist
-      - id: deploy
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+    uses: ./.github/workflows/deploy.yml
+
+  deploy-live:
+    name: Veröffentlichen (live)
+    needs: [checks, walkthroughs, database, functions]
+    if: github.repository == 'LouisSchmidberger/logbuch' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/deploy.yml

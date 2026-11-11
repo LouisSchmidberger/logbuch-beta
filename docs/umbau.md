@@ -10,10 +10,10 @@ darf dort stehen bleiben. Kein "alles oder nichts".
 
 ## Ausgangslage
 
-Schon erledigt: Code in 31 ES-Module unter `src/` aufgeteilt (docs/module.md, mit `runtime` und
+Schon erledigt: Code in ES-Module unter `src/` aufgeteilt (docs/module.md, mit `runtime` und
 `init…()`), ESLint, CI mit Tests, Rundgängen, Abgleich JS ↔ SQL und `deno check` der Functions,
-feste Paketversionen in den Edge Functions, Phase 0 und 1 (unten). Die Module importieren sich
-gegenseitig im Kreis; das läuft nur, weil beim Laden nichts außer Deklarationen passiert.
+feste Paketversionen in den Edge Functions, Phase 0 und 1 (unten). Die Module sind in Schichten
+ohne Kreis-Imports geordnet (docs/module.md).
 
 ## Grundregeln (jede Phase)
 
@@ -61,13 +61,13 @@ gegenseitig im Kreis; das läuft nur, weil beim Laden nichts außer Deklaratione
 - Beta-Test eines Umbau-Branches (Nutzer-Entscheidung 2026-11-10: nach grünen lokalen Prüfungen
   ohne Rückfrage; Beta = Alltagskonto, Datenbank mit Live geteilt): `git push beta
   umbau/phase-…:main`, zurück mit `git push --force-with-lease beta main:main`.
-- **Rückweg seit Phase 1**: veröffentlicht wird nur noch über den CI-Job `deploy`. Ein Stand
+- **Rückweg seit Phase 1**: veröffentlicht wird nur noch über die CI (`deploy.yml`). Ein Stand
   ohne diesen Job (z.B. `vor-umbau`) veröffentlicht nichts, die Seite bliebe beim neuen Stand.
-  Deshalb zurück immer vorwärts: `git revert` der Umbau-Commits, die `ci.yml` mit `deploy`
-  bleibt. Notfalls Pages-Quelle wieder auf "Deploy from a branch" (main, Stamm) und den alten
+  Deshalb zurück immer vorwärts: `git revert` der Umbau-Commits, `ci.yml` und `deploy.yml`
+  bleiben. Notfalls Pages-Quelle wieder auf "Deploy from a branch" (main, Stamm) und den alten
   Stand pushen.
-- Der Übergangs-Teil in `ci.yml` ("Stand vor dem Build … behalten") ist nach dem ersten
-  Live-Deploy mit Vite überflüssig; in Phase 2 entfernen.
+- Der Übergangs-Teil in `deploy.yml` ("Stand vor dem Build … behalten") ist nach dem ersten
+  Live-Deploy mit Vite überflüssig; danach entfernen.
 - Live wie in `CLAUDE.md` "Deployment": gesammelt, auf Okay des Nutzers.
 
 ## Phasen
@@ -91,11 +91,12 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
 - Vorschau = Vite-Build im Modus "preview" (Supabase-Nachbau per Alias, Vorschau-Haken an
   `main.js`), also derselbe gebündelte Code wie live. Die CI prüft, dass `dist/` keinen
   Vorschau-Code enthält; `dev/` wird nicht mehr veröffentlicht.
-- Veröffentlichen über den CI-Job `deploy`, nur wenn alles grün ist; Skript und CSS des vorigen
+- Veröffentlichen nur über die CI (`deploy.yml`; live wenn alles grün ist, Beta nach den schnellen Prüfungen); Skript und CSS des vorigen
   Stands bleiben eine Runde online (docs/freigabe.md).
-- `npm run typecheck` (`checkJs`, nicht streng) läuft in der CI nur als Hinweis: 257 Meldungen
+- `npm run typecheck` (`checkJs`, nicht streng): 257 Meldungen
   zum Start, fast alle "Eigenschaft unbekannt" (`event.target.dataset` u. ä.), kein echter
-  Fehler darunter gefunden. Abbau in Phase 3.
+  Fehler darunter gefunden. Die CI scheitert erst bei mehr als diesen
+  (`dev/typecheck-count.mjs`, Grenze beim Abbau senken). Abbau in Phase 3.
 - Browser-Ziel wie vor dem Build (Safari 14, Chrome 87 usw., `vite.config.js`), damit CSS und JS
   auf älteren Geräten gleich bleiben. Unabhängiges Review vor dem Merge, Befunde behoben.
 - Bildvergleich: alle Rundgang-Bilder gleich der Baseline außer dem zufälligen Ersatzschlüssel.
@@ -103,20 +104,26 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
 
 ### Phase 2: Struktur
 
-- **Schichten ohne Kreis-Imports**: `lib` → `crypto`/`domain` → `data` → `features` → `ui` →
-  `app`; untere importieren nie von oberen. `render()` über ein kleines Modul mit
-  `requestRender()`, das der Start mit der echten `render` verdrahtet. ESLint
-  `import/no-cycle` als Fehler, sobald die Kreise abgebaut sind.
-- **Ordner pro Bereich**: aus den flachen Modulen werden `src/<schicht>/…` bzw.
-  `src/features/<name>/`. Wo Logik und Rendering gemischt sind, zuerst gemeinsam verschieben.
-- **Event-Registry**: die Event-Delegation in `events.js` (über 1.400 Zeilen) wird eine Tabelle
-  `{ [action]: handler }`, je Bereich eine Datei. Vorher prüfen, ob Reihenfolge oder frühe
-  `return`s zwischen Zweigen zählen; die gemeinsame Vorarbeit (`state.notice = null` u. ä.)
-  bleibt im Verteiler.
-- **Tests mit Vitest**: jeder Fall aus `dev/tests.mjs` 1:1 als `src/**/*.test.ts`, danach
-  `internals` aus `dev/server.mjs` streichen. Rundgänge bleiben Puppeteer.
-- `STRINGS` in `de.ts`/`en.ts`, `CHANGELOG` in eine eigene Datei.
-- ESLint `max-lines` 500 als Warnung (ohne Texte und `CHANGELOG`).
+- **Schichten ohne Kreis-Imports** (erledigt 2026-11-11): Grundlagen → Zustand → Fachlogik →
+  Daten → Abläufe → Oberfläche → Start, nach oben nur über `render-request.js`; ESLint
+  `import/no-cycle` als Fehler (docs/module.md). Pixelgleich gegen eine am selben Tag neu
+  erzeugte Baseline (die Demo-Daten hängen vom Datum ab).
+- **Ordner pro Schicht** (erledigt 2026-11-11): `src/lib`, `state`, `domain`, `data`, `features`,
+  `ui`; der Linter verbietet Importe aus höheren Ordnern. Unterordner je Bereich
+  (`src/ui/<name>/`) erst, wenn ein Bereich aus mehreren Dateien besteht.
+- **Event-Registry** (erledigt 2026-11-11, Klicks): Tabellen `{ action: handler }` je Bereich in
+  `src/ui/actions/`, die gemeinsame Vorarbeit bleibt im Verteiler in `events.js`. Alle 152
+  Zweige maschinell als wörtlich übernommen geprüft. Die übrigen Listener (`change`, `input`,
+  `keydown`) sind klein genug und bleiben vorerst Ketten.
+- **Tests mit Vitest** (erledigt 2026-11-11): alle 86 Fälle 1:1 in `src/logic.test.js` (jsdom,
+  ohne Browser); `dev/tests.mjs` entfällt. `internals` bleibt für `dev/sync-tests.mjs` (braucht
+  die Datenbank). Aufteilen je Modul mit dem Umbenennen nach `.ts` (Phase 3). Rundgänge bleiben
+  Puppeteer.
+- `STRINGS` je Sprache (`src/lib/strings-de.js`/`-en.js`), `CHANGELOG` in `src/data/changelog.js`
+  (erledigt 2026-11-11; `.ts` in Phase 3).
+- ESLint `max-lines` 500 als Warnung, ohne Texte, `CHANGELOG` und Tests (erledigt 2026-11-11). Stand:
+  8 Dateien darüber (Feld-Formular, Typ ändern, Feld-Aktionen, Anmelde-, Feld-, Haupt- und
+  Zeilen-Ansicht, Vorlagen); Aufteilen bei Gelegenheit, ohne Eile.
 
 ### Phase 3: TypeScript
 

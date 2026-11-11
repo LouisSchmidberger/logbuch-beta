@@ -1,59 +1,29 @@
-// Logbuch - Einstieg. Die App-Logik liegt in Modulen unter src/, eins je Bereich (Übersicht:
-// docs/module.md). Die Module werden hier in der Reihenfolge des früheren Gesamtskripts
-// geladen, damit Code, der beim Laden läuft (Event-Listener, Theme), wie vorher nacheinander läuft.
-import './config.js';
-import './crypto.js';
-import './fields.js';
-import './dates.js';
-import './state.js';
-import './navigation.js';
-import './strings.js';
-import './i18n.js';
-import './theme.js';
-import './format.js';
-import './notices.js';
-import './data.js';
-import './keys.js';
-import './field-form.js';
-import './type-change.js';
-import './section-form.js';
-import './save.js';
-import './device.js';
-import './account.js';
-import './auth-view.js';
-import './row-view.js';
-import './stats-view.js';
-import './about-view.js';
-import './templates.js';
-import './fields-view.js';
-import './tutorial.js';
-import './main-view.js';
-import './events.js';
-import './gestures.js';
-import './deeplinks.js';
-import './session.js';
-import { ARRIVED_VIA_EMAIL_CHANGE, ARRIVED_VIA_SIGNUP_CONFIRM, MAIL_LINK_ERROR, supabase } from './config.js';
-import { state } from './state.js';
-import { applyLocale, detectInitialLocale, t } from './i18n.js';
-import { applyTextSize, applyTheme, getTextSize, getThemeOverride } from './theme.js';
-import { isMobileDevice, isStandaloneDisplay, resetIOSZoomOnStandaloneStart } from './device.js';
-import { isInstallGateSkipped } from './auth-view.js';
-import { TUTORIAL_STEP_FIELD } from './tutorial.js';
-import { render } from './main-view.js';
-import { applyDeepLink, parseDeepLink } from './deeplinks.js';
-import { initNavigation } from './navigation.js';
-import { initI18n } from './i18n.js';
-import { initFormat } from './format.js';
-import { initNotices } from './notices.js';
-import { initData } from './data.js';
-import { initKeys } from './keys.js';
-import { initSave } from './save.js';
-import { initAuthView } from './auth-view.js';
-import { initMainView } from './main-view.js';
-import { initEvents } from './events.js';
-import { initGestures } from './gestures.js';
-import { initDeeplinks } from './deeplinks.js';
-import { initSession } from './session.js';
+// Logbuch - Einstieg: trägt die Haken für render-request.js ein, ruft die init…()-Funktionen der
+// Module in fester Reihenfolge auf und startet die App. Aufbau der Module: docs/module.md.
+import { ARRIVED_VIA_EMAIL_CHANGE, ARRIVED_VIA_SIGNUP_CONFIRM, MAIL_LINK_ERROR, supabase } from './lib/config.js';
+import { state } from './state/state.js';
+import { applyTextSize, applyTheme, getTextSize, getThemeOverride } from './lib/theme.js';
+import { resetIOSZoomOnStandaloneStart } from './data/device.js';
+import { initAuthView, isInstallGateSkipped } from './ui/auth-view.js';
+import { initMainView, render } from './ui/main-view.js';
+import { applyDeepLink, initDeeplinks, parseDeepLink } from './ui/deeplinks.js';
+import { initNavigation, syncLayerHistory } from './ui/navigation.js';
+import { initFormat } from './lib/format.js';
+import { initData } from './data/data.js';
+import { initKeys } from './data/keys.js';
+import { initSave } from './data/save.js';
+import { initEvents } from './ui/events.js';
+import { initGestures } from './ui/gestures.js';
+import { initSession } from './features/session.js';
+import { isMobileDevice, isStandaloneDisplay } from './lib/platform.js';
+import { setRenderHooks } from './lib/render-request.js';
+import { syncTodayOpenMarkers } from './ui/row-view.js';
+import { TUTORIAL_STEP_FIELD } from './state/onboarding-state.js';
+import { applyLocale, detectInitialLocale, initI18n, t } from './lib/i18n.js';
+import { initNotices } from './ui/notices.js';
+
+// Die echten Funktionen der Oberfläche für render-request.js eintragen, vor allem anderen.
+setRenderHooks({ render, syncTodayOpenMarkers, syncLayerHistory });
 
 // Start-Code der Module, in der Reihenfolge des früheren Gesamtskripts.
 initNavigation();

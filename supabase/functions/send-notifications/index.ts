@@ -87,7 +87,7 @@ interface DueRow {
 // Ziel-URL einer Benachrichtigung: Ansicht + der Tag, auf den sie sich bezieht (nicht
 // "heute zum Klick-Zeitpunkt" - eine Wochenübersicht, die erst Montagmorgen angetippt
 // wird, soll trotzdem die gemeinte, schon abgelaufene Woche zeigen). Ausgewertet von
-// sw.js (notificationclick) und parseDeepLink in src/deeplinks.js.
+// sw.js (notificationclick) und parseDeepLink in src/ui/deeplinks.js.
 // fieldId (optional): bei Erinnerungen an ein bestimmtes Feld scrollt "Heute" dorthin.
 function deepLink(view: 'today' | 'week' | 'month', dateKey: string, fieldId?: string): string {
   return `./logbuch.html?view=${view}&date=${dateKey}${fieldId ? `&field=${fieldId}` : ''}`;

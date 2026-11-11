@@ -29,7 +29,7 @@ export function install(app) {
     admin: previewAdmin,
     state: app.state, // zum Nachsehen in Skripten (z.B. Feld-IDs für Deep-Links)
     render: app.render, // nach Änderungen an state von Hand neu zeichnen
-    internals: app.internals, // reine Rechenfunktionen für dev/tests.mjs
+    internals: app.internals, // reine Rechenfunktionen für dev/sync-tests.mjs
 
     // Alles weg: nachgebaute Datenbank, Schlüssel-Cache, Gerätespuren. Danach neu laden.
     async resetAll() {
@@ -82,7 +82,7 @@ export function install(app) {
         { key: 'fwohl', name: 'Wohlbefinden', kind: 'computed', groupMembers: ['fstimmung', 'fenergie'], good: null },
         { key: 'fkopf', name: 'Kopfschmerzen', kind: 'scale', section: 'abends', min: 1, max: 4, good: 'low', labels: ['keine', 'leicht', 'mittel', 'stark'] },
         { key: 'fdank', name: 'Dankbar für', kind: 'text', section: 'abends' },
-        // Zeitraum-Felder: Wert im ersten Tag des Zeitraums (siehe periodStart in src/dates.js)
+        // Zeitraum-Felder: Wert im ersten Tag des Zeitraums (siehe periodStart in src/domain/dates.js)
         { key: 'fputz', name: 'Zimmer geputzt', kind: 'scale', min: 1, max: 2, good: 'high', labels: ['Nein', 'Ja'], period: 'week' },
         { key: 'fmonat', name: 'Monatsrückblick', kind: 'text', period: 'month' },
         { key: 'fbuch', name: 'Gelesene Bücher', kind: 'number', period: 'month' },

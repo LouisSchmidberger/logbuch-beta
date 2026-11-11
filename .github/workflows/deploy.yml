@@ -1,0 +1,56 @@
+# Veröffentlichen auf GitHub Pages: wird nur aus ci.yml aufgerufen (Beta nach den schnellen
+# Prüfungen, live nach allen). Baut die App neu und behält die Dateien des vorigen Stands eine Runde.
+name: Veröffentlichen
+
+on:
+  workflow_call:
+
+jobs:
+  deploy:
+    name: GitHub Pages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Kein Vorschau-Code im Build
+        run: test -f dist/logbuch.html && ! grep -rlE 'logbuchPreview|mock-supabase|previewAdmin' dist/
+      # Skript und CSS des bisherigen Stands eine Runde mitveröffentlichen: ein Browser mit noch
+      # zwischengespeichertem altem logbuch.html (Pages: bis 10 Minuten) fände sie sonst nicht mehr.
+      - name: Dateien des vorigen Stands behalten
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          base="https://${owner}.github.io/${GITHUB_REPOSITORY#*/}/"
+          old=$(curl -sf "${base}logbuch.html" || true)
+          for f in $(printf '%s' "$old" | grep -o 'assets/[A-Za-z0-9._-]*\.\(js\|css\)' | sort -u); do
+            if [ ! -e "dist/$f" ] && curl -sf "${base}$f" -o "dist/$f"; then echo "behalten: $f"; fi
+          done
+          # Übergang vom Stand vor dem Build (ungebündelt, logbuch.js?v=…): dessen Dateien ebenso eine
+          # Runde behalten. Greift nur, solange online noch dieser alte Stand liegt (docs/umbau.md).
+          if printf '%s' "$old" | grep -q 'logbuch\.js?v='; then
+            mkdir -p dist/js dist/vendor
+            for f in logbuch.js logbuch.css; do curl -sf "${base}$f" -o "dist/$f" && echo "behalten: $f"; done
+            for f in $(grep -o 'js/[a-z0-9-]*\.js' dist/logbuch.js | sort -u); do curl -sf "${base}$f" -o "dist/$f" && echo "behalten: $f"; done
+            for f in $(cat dist/js/*.js | grep -o 'vendor/supabase-js-[0-9.]*\.js' | sort -u); do curl -sf "${base}$f" -o "dist/$f" && echo "behalten: $f"; done
+          fi
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

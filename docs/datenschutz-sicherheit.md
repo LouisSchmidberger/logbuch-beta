@@ -177,13 +177,13 @@ samt E-Mail-Adressen). Ohne JWT-Prüfung (`verify_jwt = false` in `supabase/conf
 
 ## Secrets
 
-- `VAPID_PUBLIC_KEY` steht im Klartext in `src/config.js` – beabsichtigt, öffentliche
+- `VAPID_PUBLIC_KEY` steht im Klartext in `src/lib/config.js` – beabsichtigt, öffentliche
   Push-Keys sind dafür gedacht.
 - `VAPID_PRIVATE_KEY` liegt **ausschließlich** als Supabase Function Secret (`supabase
   secrets set ...`). Beim Rotieren: neuen Key generieren, Secret updaten, öffentlichen Key in
-  `src/config.js` UND im Push-Subscribe-Flow der Nutzer neu abgleichen (alte Subscriptions
+  `src/lib/config.js` UND im Push-Subscribe-Flow der Nutzer neu abgleichen (alte Subscriptions
   werden mit neuem Key ungültig).
-- `SUPABASE_ANON_KEY` (publishable) ist unkritisch öffentlich, liegt in `src/config.js` und im
+- `SUPABASE_ANON_KEY` (publishable) ist unkritisch öffentlich, liegt in `src/lib/config.js` und im
   Vault (`publishable_key`, für den Cron-Aufruf).
 - `RESEND_FEEDBACK_KEY` (Function Secret): eigener Resend-Key nur für `submit-feedback`
   ("Sending access"), getrennt vom SMTP-Key, damit er sich unabhängig sperren lässt.

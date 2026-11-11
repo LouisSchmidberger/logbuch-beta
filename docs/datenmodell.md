@@ -207,7 +207,7 @@ anderes zu, ungültige Pläne gelten als dran. Alle 7 Wochentage werden als `nul
 von täglich).
 
 **Zwei Implementierungen derselben Regel, die synchron bleiben müssen**:
-`isScheduledOn`/`isPlannedOn` in `src/dates.js` und `public.habit_scheduled_on(schedule,
+`isScheduledOn` (`src/lib/calendar.js`)/`isPlannedOn` (`src/domain/dates.js`) und `public.habit_scheduled_on(schedule,
 date)` (plpgsql, aktuelle Fassung in Migration `20261028160925_schedule_interval`). Der Tagesabstand in JS
 rechnet über lokale Mitternacht mit `Math.round(…/86400000)`, damit Sommer-/Winterzeit
 (23/25-Stunden-Tage) nicht um einen Tag verschiebt. Ob beide dasselbe ergeben, prüft
