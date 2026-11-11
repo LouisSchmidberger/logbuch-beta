@@ -30,6 +30,13 @@ export default [
     },
   },
   {
+    // Lange Dateien als Hinweis (docs/umbau.md): ab 500 Zeilen Code aufteilen erwägen. Texte und
+    // "Was ist neu" sind reine Daten und zählen nicht.
+    files: ['src/**/*.js'],
+    ignores: ['src/lib/strings-*.js', 'src/data/changelog.js', 'src/**/*.test.js'],
+    rules: { 'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }] },
+  },
+  {
     files: ['public/sw.js'],
     languageOptions: { sourceType: 'script', globals: { ...globals.serviceworker } },
   },

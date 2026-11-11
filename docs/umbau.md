@@ -118,8 +118,11 @@ Grund: TypeScript kann Imports mit `?v=…` nicht auflösen (TS2307, gemessen); 
   ohne Browser); `dev/tests.mjs` entfällt. `internals` bleibt für `dev/sync-tests.mjs` (braucht
   die Datenbank). Aufteilen je Modul mit dem Umbenennen nach `.ts` (Phase 3). Rundgänge bleiben
   Puppeteer.
-- `STRINGS` in `de.ts`/`en.ts`, `CHANGELOG` in eine eigene Datei.
-- ESLint `max-lines` 500 als Warnung (ohne Texte und `CHANGELOG`).
+- `STRINGS` je Sprache (`src/lib/strings-de.js`/`-en.js`), `CHANGELOG` in `src/data/changelog.js`
+  (erledigt 2026-11-11; `.ts` in Phase 3).
+- ESLint `max-lines` 500 als Warnung, ohne Texte, `CHANGELOG` und Tests (erledigt 2026-11-11). Stand:
+  8 Dateien darüber (Feld-Formular, Typ ändern, Feld-Aktionen, Anmelde-, Feld-, Haupt- und
+  Zeilen-Ansicht, Vorlagen); Aufteilen bei Gelegenheit, ohne Eile.
 
 ### Phase 3: TypeScript
 
